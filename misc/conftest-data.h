@@ -1,4 +1,4 @@
-//  Generated on 2024/05/26.
+//  Generated on 2024/06/08.
 
 struct testdata
 {
@@ -811,7 +811,7 @@ testdata tests[] = {
 },
 	//  Flag modifiers.
 {
-	0, "(?i) 01.\n",
+	0, "UBModifiers 01: (?i) 01.\n",
 	"",
 	RE("(?i)aeiou"),
 	STR("AEIOU"),
@@ -819,7 +819,7 @@ testdata tests[] = {
 	STR0("AEIOU")
 },
 {
-	0, "(?-i) 01.\n",
+	0, "UBModifiers 02: (?-i) 01.\n",
 	"i",
 	RE("(?-i)aeiou"),
 	STR("AEIOU"),
@@ -827,7 +827,7 @@ testdata tests[] = {
 	STR0("")
 },
 {
-	0, "(?m) 01.\n",
+	0, "UBModifiers 03: (?m) 01.\n",
 	"",
 	RE("(?m)abc$\\n^def"),
 	STR("abc\ndef"),
@@ -835,7 +835,7 @@ testdata tests[] = {
 	STR0("abc\ndef")
 },
 {
-	0, "(?-m) 01.\n",
+	0, "UBModifiers 04: (?-m) 01.\n",
 	"",
 	RE("(?-m)abc$\\n^def"),
 	STR("abc\ndef"),
@@ -843,7 +843,7 @@ testdata tests[] = {
 	STR0("")
 },
 {
-	0, "(?s) 01.\n",
+	0, "UBModifiers 05: (?s) 01.\n",
 	"",
 	RE("(?s)abc.def"),
 	STR("abc\ndef"),
@@ -851,13 +851,85 @@ testdata tests[] = {
 	STR0("abc\ndef")
 },
 {
-	0, "(?-s) 01.\n",
+	0, "UBModifiers 06: (?-s) 01.\n",
 	"",
 	RE("(?-s)abc$^def"),
 	STR("abc\ndef"),
 	0, 0,
 	STR0("")
 },
+
+#if defined(SRELL_ENABLE_MODIFIERS)
+{
+	0, "Modifiers 01: m-flag #1.\n",
+	"",
+	RE("(?m:[^]*?$)"),
+	STR("abcd\nefgh\n"),
+	0, 1,
+	STR0("abcd")
+},
+{
+	0, "Modifiers 02: m-flag #2.\n",
+	"m",
+	RE("(?-m:[^]*?$)"),
+	STR("abcd\nefgh\n"),
+	0, 1,
+	STR0("abcd\nefgh\n")
+},
+{
+	0, "Modifiers 03: s-flag #1.\n",
+	"",
+	RE("(.*)(?s:.*)"),
+	STR("abcd\nefgh\n"),
+	0, 2,
+	STR0("abcd\nefgh\n")
+	STR0("abcd")
+},
+{
+	0, "Modifiers 04: s-flag #2.\n",
+	"s",
+	RE("(.*)(?-s:.)"),
+	STR("abcd\nefgh\n"),
+	0, 2,
+	STR0("abcd\nefgh")
+	STR0("abcd\nefg")
+},
+{
+	0, "Modifiers 05: i-flag #1.\n",
+	"",
+	RE("(?i:[a-z]+)"),
+	STR("aBcD"),
+	0, 1,
+	STR0("aBcD")
+},
+{
+	0, "Modifiers 06: i-flag #2.\n",
+	"i",
+	RE("(?-i:[a-z]+)"),
+	STR("aBcD"),
+	0, 1,
+	STR0("a")
+},
+{
+	0, "Modifiers 07: i-flag #3.\n",
+	"G",
+	RE("(a)(?i:\\1)"),
+	STR("aa aA Aa AA"),
+	0, 2,
+	STR0("aa")
+	STR0("aA")
+},
+{
+	0, "Modifiers 08: i-flag #4.\n",
+	"iG",
+	RE("(a)(?-i:\\1)"),
+	STR("aa aA Aa AA"),
+	0, 2,
+	STR0("aa")
+	STR0("AA")
+},
+#endif	//  defined(SRELL_ENABLE_MODIFIERS)
+
 	//  Optimisations' side effect check.
 	//  gather_nextchars().
 {
@@ -1015,6 +1087,47 @@ testdata tests[] = {
 	0, 1,
 	STR0("SKIING")
 },
+
+#if defined(SRELL_ENABLE_MODIFIERS)
+	//  is_exclusive_sequence(), i-modifiers.
+{
+	0, "OSEC, ES-IMOD 01.\n",
+	"",
+	RE("(?i:a*)(A+)"),
+	STR("aAaA"),
+	0, 2,
+	STR0("aAaA")
+	STR0("A")
+},
+{
+	0, "OSEC, ES-IMOD 02.\n",
+	"",
+	RE("a*((?i:A+))"),
+	STR("aaaa"),
+	0, 2,
+	STR0("aaaa")
+	STR0("a")
+},
+{
+	0, "OSEC, ES-IMOD 03.\n",
+	"i",
+	RE("(?-i:a*)(A+)"),
+	STR("aAaA"),
+	0, 2,
+	STR0("aAaA")
+	STR0("AaA")
+},
+{
+	0, "OSEC, ES-IMOD 04.\n",
+	"i",
+	RE("A*((?-i:a+))"),
+	STR("aaaa"),
+	0, 2,
+	STR0("aaaa")
+	STR0("a")
+},
+#endif	//  defined(SRELL_ENABLE_MODIFIERS)
+
 	//  Simplified counter mechanism.
 {
 	0, "OSEC, SC 01.\n",
@@ -2513,6 +2626,7 @@ testdata tests[] = {
 	STR0("ab")
 	STR0("b")
 },
+	//  unicode-property-names-invalid.js, unicode-property-names-valid.js, unicode-property-names.js.
 {
 	0, "named-groups 03a: unicode-references.js #1.\n",
 	"",
@@ -2579,6 +2693,186 @@ testdata tests[] = {
 	STR0("b")
 	STR0("(undefined)")
 },
+{
+	0, "named-groups 04a: duplicate-names-(exec|match|test).js #1.\n",
+	"",
+	RE("(?<x>a)|(?<x>b)"),
+	STR("bab"),
+	0, 3,
+	STR0("b")
+	STR0("(undefined)")
+	STR0("b")
+},
+{
+	0, "named-groups 04b: duplicate-names-(exec|match|test).js #2.\n",
+	"",
+	RE("(?<x>b)|(?<x>a)"),
+	STR("bab"),
+	0, 3,
+	STR0("b")
+	STR0("b")
+	STR0("(undefined)")
+},
+{
+	0, "named-groups 04c: duplicate-names-(exec|match|test).js #3.\n",
+	"",
+	RE("(?:(?<x>a)|(?<x>b))\\k<x>"),
+	STR("aa"),
+	0, 3,
+	STR0("aa")
+	STR0("a")
+	STR0("(undefined)")
+},
+{
+	0, "named-groups 04d: duplicate-names-(exec|match|test).js #4.\n",
+	"",
+	RE("(?:(?<x>a)|(?<x>b))\\k<x>"),
+	STR("bb"),
+	0, 3,
+	STR0("bb")
+	STR0("(undefined)")
+	STR0("b")
+},
+{
+	0, "named-groups 04e: duplicate-names-(exec|match|test).js #5.\n",
+	"N",
+	RE("(?:(?:(?<x>a)|(?<x>b))\\k<x>){2}"),
+	STR("aabb"),
+	0, 3,
+	STR0("aabb")
+	STR0("(undefined)")
+	STR0("b <x>")
+},
+{
+	0, "named-groups 04f: duplicate-names-(exec|match|test).js #6.\n",
+	"",
+	RE("(?:(?:(?<x>a)|(?<x>b))\\k<x>){2}"),
+	STR("abab"),
+	0, 0,
+	STR0("")
+},
+{
+	0, "named-groups 04g: duplicate-names-(exec|match).js #7.\n",
+	"",
+	RE("(?:(?<x>a)|(?<x>b))\\k<x>"),
+	STR("abab"),
+	0, 0,
+	STR0("")
+},
+{
+	0, "named-groups 04h: duplicate-names-(exec|match).js #8.\n",
+	"",
+	RE("(?:(?<x>a)|(?<x>b))\\k<x>"),
+	STR("cdef"),
+	0, 0,
+	STR0("")
+},
+{
+	0, "named-groups 04i: duplicate-names-(exec|match).js #9.\n",
+	"",
+	RE("^(?:(?<a>x)|(?<a>y)|z)\\k<a>$"),
+	STR("xx"),
+	0, 3,
+	STR0("xx")
+	STR0("x")
+	STR0("(undefined)")
+},
+{
+	0, "named-groups 04j: duplicate-names-(exec|match).js #10.\n",
+	"",
+	RE("^(?:(?<a>x)|(?<a>y)|z)\\k<a>$"),
+	STR("z"),
+	0, 3,
+	STR0("z")
+	STR0("(undefined)")
+	STR0("(undefined)")
+},
+{
+	0, "named-groups 04k: duplicate-names-(exec|match).js #11.\n",
+	"",
+	RE("^(?:(?<a>x)|(?<a>y)|z)\\k<a>$"),
+	STR("zz"),
+	0, 0,
+	STR0("")
+},
+{
+	0, "named-groups 04l: duplicate-names-(exec|match).js #12.\n",
+	"",
+	RE("(?<a>x)|(?:zy\\k<a>)"),
+	STR("zy"),
+	0, 2,
+	STR0("zy")
+	STR0("(undefined)")
+},
+{
+	0, "named-groups 04m: duplicate-names-(exec|match).js #13.\n",
+	"",
+	RE("^(?:(?<a>x)|(?<a>y)|z){2}\\k<a>$"),
+	STR("xz"),
+	0, 3,
+	STR0("xz")
+	STR0("(undefined)")
+	STR0("(undefined)")
+},
+{
+	0, "named-groups 04n: duplicate-names-(exec|match).js #14.\n",
+	"",
+	RE("^(?:(?<a>x)|(?<a>y)|z){2}\\k<a>$"),
+	STR("yz"),
+	0, 3,
+	STR0("yz")
+	STR0("(undefined)")
+	STR0("(undefined)")
+},
+{
+	0, "named-groups 04o: duplicate-names-(exec|match).js #15.\n",
+	"",
+	RE("^(?:(?<a>x)|(?<a>y)|z){2}\\k<a>$"),
+	STR("xzx"),
+	0, 0,
+	STR0("")
+},
+{
+	0, "named-groups 04p: duplicate-names-(exec|match).js #16.\n",
+	"",
+	RE("^(?:(?<a>x)|(?<a>y)|z){2}\\k<a>$"),
+	STR("yzy"),
+	0, 0,
+	STR0("")
+},
+{
+	0, "named-groups 05a: duplicate-names-matchall.js #1.\n",
+	"A",
+	RE("(?<x>a)|(?<x>b)"),
+	STR("bab"),
+	0, 9,
+	STR0("b")
+	STR0("(undefined)")
+	STR0("b")
+	STR0("a")
+	STR0("a")
+	STR0("(undefined)")
+	STR0("b")
+	STR0("(undefined)")
+	STR0("b")
+},
+{
+	0, "named-groups 05b: duplicate-names-matchall.js #2.\n",
+	"A",
+	RE("(?<x>b)|(?<x>a)"),
+	STR("bab"),
+	0, 9,
+	STR0("b")
+	STR0("b")
+	STR0("(undefined)")
+	STR0("a")
+	STR0("(undefined)")
+	STR0("a")
+	STR0("b")
+	STR0("b")
+	STR0("(undefined)")
+},
+
 {
 	1, NULL,
 	NULL,

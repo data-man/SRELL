@@ -1,6 +1,6 @@
 //
 //  Conformance test program for SRELL.
-//  Version 3.002 (2024/05/26)
+//  Version 3.003 (2024/06/06)
 //
 
 #include <cstdio>
@@ -574,7 +574,7 @@ bool conf_test(
 		for (; mr.size() != 0;)
 		{
 			if (global || matchall)
-				std::fprintf(stdout, "\t#%.2u\n", static_cast<unsigned int>(matchcount / mr.size()));
+				std::fprintf(stdout, "\t#%.2u\n", static_cast<unsigned int>(matchcount / (matchall ? mr.size() : 1)));
 
 			for (srell::cmatch::size_type i = 0; i < mr.size(); ++i)
 			{
@@ -602,7 +602,7 @@ bool conf_test(
 				else
 					msg = matched = simple_conv<string_type>("(undefined)") + gname;
 
-				const std::size_t expno = matchcount + i;
+				const std::size_t expno = matchcount++;
 
 				if (expno < expected.size())
 				{
@@ -627,11 +627,18 @@ bool conf_test(
 					break;
 			}
 
-			matchcount += static_cast<unsigned int>(mr.size());
-
 			if (global || matchall)
 			{
-				const CharT *const begin2 = mr[0].second;
+				const CharT *begin2 = mr[0].second;
+
+				if (begin2 == mr.prefix().first)
+				{
+					if (matchcount == expected.size())
+						break;
+
+					if (begin2 != end)
+						regex_type::traits_type::utf_traits::codepoint_inc(begin2, end);
+				}
 
 				b = srell::regex_search(begin2, end, lblimit, mr, re, mf);
 			}

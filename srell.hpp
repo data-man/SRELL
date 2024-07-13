@@ -1,6 +1,6 @@
 /*****************************************************************************
 **
-**  SRELL (std::regex-like library) version 4.043
+**  SRELL (std::regex-like library) version 4.047
 **
 **  Copyright (c) 2012-2024, Nozomu Katoo. All rights reserved.
 **
@@ -133,21 +133,25 @@ namespace srell
 	{
 		enum syntax_option_type
 		{
-			icase      = 1 << 0,
-			nosubs     = 1 << 1,
-			optimize   = 1 << 2,
-			collate    = 1 << 3,
-			ECMAScript = 1 << 4,
-			basic      = 1 << 5,
-			extended   = 1 << 6,
-			awk        = 1 << 7,
-			grep       = 1 << 8,
-			egrep      = 1 << 9,
-			multiline  = 1 << 10,
+			icase      = 1 << 1,
+			nosubs     = 1 << 2,
+			optimize   = 1 << 3,
+			collate    = 0,
+			ECMAScript = 1 << 0,
+			basic      = 0,
+			extended   = 0,
+			awk        = 0,
+			grep       = 0,
+			egrep      = 0,
+			multiline  = 1 << 4,
 
 			//  SRELL's extension.
-			dotall      = 1 << 11,	//  singleline.
-			unicodesets = 1 << 12
+			dotall      = 1 << 5,	//  singleline.
+			unicodesets = 1 << 6,
+
+			//  For internal use.
+			back_       = 1 << 7,
+			pflagsmask_ = (1 << 7) - 1
 		};
 
 		inline syntax_option_type operator&(const syntax_option_type left, const syntax_option_type right)
@@ -408,7 +412,8 @@ private:
 			static const ui_l32 multiline = 1;
 			static const ui_l32 backrefno_unresolved = 1 << 1;
 			static const ui_l32 hooking = 1 << 2;
-			static const ui_l32 hooked = 1 << 3;
+			static const ui_l32 hookedlast = 1 << 3;
+			static const ui_l32 byn2 = 1 << 4;
 		}
 		//  sflags
 
@@ -514,8 +519,8 @@ private:
 			static const ui_l32 et_brnchend = 0x2f;	//  '/'
 			static const ui_l32 et_fmrbckrf = 0x5c;	//  '\\'
 			static const ui_l32 et_bo1fmrbr = 0x31;	//  '1'
-			static const ui_l32 et_bo2skpd  = 0x21;	//  '!'
 			static const ui_l32 et_bo2fmrbr = 0x32;	//  '2'
+			static const ui_l32 et_bo2skpd  = 0x21;	//  '!'
 			static const ui_l32 et_rvfmrcg  = 0x28;	//  '('
 			static const ui_l32 et_mfrfmrcg = 0x29;	//  ')'
 			static const ui_l32 et_aofmrast = 0x78;	//  'x'
@@ -604,6 +609,11 @@ public:
 	static ui_l32 firstcodeunit(const ui_l32 cp)
 	{
 		return cp;
+	}
+
+	static ui_l32 nextlengthchange(const ui_l32)
+	{
+		return maxcpvalue + 1;
 	}
 };
 template <typename charT> const std::size_t utf_traits_core<charT>::maxseqlen;
@@ -847,6 +857,11 @@ public:
 
 		return static_cast<ui_l32>(((cp >> 18) & 0x07) | 0xf0);
 	}
+
+	static ui_l32 nextlengthchange(const ui_l32 cp)
+	{
+		return (cp < 0x80) ? 0x80 : ((cp < 0x800) ? 0x800 : ((cp < 0x10000) ? 0x10000 : 0x110000));
+	}
 };
 template <typename charT> const std::size_t utf8_traits<charT>::maxseqlen;
 template <typename charT> const int utf8_traits<charT>::utftype;
@@ -962,6 +977,11 @@ public:
 
 		return static_cast<ui_l32>((cp >> 10) + 0xd7c0);
 			//  aaaaa bbbbcccc ddddeeee -> AA AAbb bbcc/cc dddd eeee where AAAA = aaaaa - 1.
+	}
+
+	static ui_l32 nextlengthchange(const ui_l32 cp)
+	{
+		return (cp < 0x10000) ? 0x10000 : 0x110000;
 	}
 };
 template <typename charT> const std::size_t utf16_traits<charT>::maxseqlen;
@@ -1579,13 +1599,36 @@ struct simple_stack : protected simple_array<char>
 	namespace re_detail
 	{
 
-//  Always uses a heap instead of the stack.
 template <const std::size_t Bits>
-class bitset
+struct bitsetbase
 {
-private:
+	typedef std::size_t array_type;
 
-	typedef unsigned long array_type;
+#if defined(__cpp_constexpr)
+	static constexpr std::size_t pow2leN(const std::size_t n, const std::size_t p2)
+	{
+		return ((p2 << 1) == 0 || (p2 << 1) > n) ? p2 : pow2leN(n, p2 << 1);
+	}
+	static const std::size_t bits_per_elem_ = pow2leN(CHAR_BIT * sizeof (array_type), 8);
+#else
+	static const std::size_t bpe_tmp_ = CHAR_BIT * sizeof (array_type);
+	static const std::size_t bits_per_elem_ = bpe_tmp_ >= 64 ? 64 : (bpe_tmp_ >= 32 ? 32 : (bpe_tmp_ >= 16 ? 16 : 8));
+#endif
+};
+
+template <>
+struct bitsetbase<256>
+{
+	typedef unsigned char array_type;
+
+	static const std::size_t bits_per_elem_ = 1;
+};
+
+template <const std::size_t Bits>
+class bitset : private bitsetbase<Bits>
+{
+	typedef bitsetbase<Bits> base_type;
+	typedef typename base_type::array_type array_type;
 
 public:
 
@@ -1657,19 +1700,19 @@ public:
 
 	bitset &reset(const std::size_t bit)
 	{
-		buffer_[bit / bits_per_elem_] &= ~(1ul << (bit & bitmask_));
+		buffer_[bit / base_type::bits_per_elem_] &= ~(static_cast<array_type>(1) << (bit & bitmask_));
 		return *this;
 	}
 
 	bitset &set(const std::size_t bit)
 	{
-		buffer_[bit / bits_per_elem_] |= (1ul << (bit & bitmask_));
+		buffer_[bit / base_type::bits_per_elem_] |= (static_cast<array_type>(1) << (bit & bitmask_));
 		return *this;
 	}
 
 	bool test(const std::size_t bit) const
 	{
-		return ((buffer_[bit / bits_per_elem_] >> (bit & bitmask_)) & 1) != 0;
+		return ((buffer_[bit / base_type::bits_per_elem_] >> (bit & bitmask_)) & 1) != 0;
 	}
 
 	void swap(bitset &right)
@@ -1684,18 +1727,8 @@ public:
 
 private:
 
-#if defined(__cpp_constexpr)
-	static constexpr std::size_t pow2leN(const std::size_t n, const std::size_t p2)
-	{
-		return ((p2 << 1) == 0 || (p2 << 1) > n) ? p2 : pow2leN(n, p2 << 1);
-	}
-	static const std::size_t bits_per_elem_ = pow2leN(CHAR_BIT * sizeof (array_type), 8);
-#else
-	static const std::size_t bpe_tmp_ = CHAR_BIT * sizeof (array_type);
-	static const std::size_t bits_per_elem_ = bpe_tmp_ >= 64 ? 64 : (bpe_tmp_ >= 32 ? 32 : (bpe_tmp_ >= 16 ? 16 : 8));
-#endif
-	static const std::size_t bitmask_ = bits_per_elem_ - 1;
-	static const std::size_t arraylength_ = (Bits + bitmask_) / bits_per_elem_;
+	static const std::size_t bitmask_ = base_type::bits_per_elem_ - 1;
+	static const std::size_t arraylength_ = (Bits + bitmask_) / base_type::bits_per_elem_;
 	static const std::size_t size_in_byte_ = arraylength_ * sizeof (array_type);
 
 	array_type *buffer_;
@@ -2038,7 +2071,7 @@ struct range_pair	//  , public std::pair<charT, charT>
 
 	bool operator<(const range_pair &right) const
 	{
-		return this->second < right.first;	//  This assumes that optimise() has been called.
+		return this->second < right.first;
 	}
 
 	void swap(range_pair &right)
@@ -2577,15 +2610,31 @@ public:
 
 #endif	//  !defined(SRELLDBG_NO_CCPOS)
 
-	ui_l32 total_codepoints() const
+	template <typename utf_traits>
+	ui_l32 num_codeunits() const
 	{
+		ui_l32 prev2 = constants::invalid_u32value;
 		ui_l32 num = 0;
 
 		for (size_type no = 0; no < rparray_.size(); ++no)
 		{
 			const range_pair &cr = rparray_[no];
 
-			num += cr.second - cr.first + 1;
+			for (ui_l32 first = cr.first; first <= utf_traits::maxcpvalue;)
+			{
+				const ui_l32 nlc = utf_traits::nextlengthchange(first);
+				const ui_l32 second = cr.second < nlc ? cr.second : (nlc - 1);
+				const ui_l32 cu1 = utf_traits::firstcodeunit(first);
+				const ui_l32 cu2 = utf_traits::firstcodeunit(second);
+
+				num += cu2 - cu1 + (prev2 == cu1 ? 0 : 1);
+
+				prev2 = cu2;
+				if (second == cr.second)
+					break;
+
+				first = second + 1;
+			}
 		}
 		return num;
 	}
@@ -3185,10 +3234,10 @@ public:
 
 				if (no < dupranges[j])
 				{
-					if (!(j & 1))
-						return false;
+					if (j & 1)
+						break;
 
-					break;
+					return false;
 				}
 			}
 		}
@@ -3422,6 +3471,8 @@ struct re_state
 		//       (Only bit used across compiler and algorithm).
 		//    1: backrefno_unresolved. Used only in compiler.
 		//    2: hooking. Used only in compiler.
+		//    3: hookedlast. Used only in compiler.
+		//    4: byn2. Used only in compiler.
 
 	void reset(const re_state_type t = st_character, const ui_l32 c = char_ctrl::cc_nul)
 	{
@@ -3483,7 +3534,8 @@ struct re_state
 
 	bool is_same_character_or_charclass(const re_state &right) const
 	{
-		return type == right.type && char_num == right.char_num;
+		return type == right.type && char_num == right.char_num
+			&& (type != st_character || !((flags ^ right.flags) & regex_constants::icase));
 	}
 
 	std::ptrdiff_t nearnext() const
@@ -3498,44 +3550,13 @@ struct re_state
 };
 //  re_state
 
-struct re_flags
-{
-//	bool i;
-//	bool m;
-//	bool s;
-
-#if !defined(SRELL_FIXEDWIDTHLOOKBEHIND)
-	bool back;
-#endif
-
-	void reset(const regex_constants::syntax_option_type /* flags */)
-	{
-//		i = (flags & regex_constants::icase) != 0;	//  Case-insensitive.
-//		m = (flags & regex_constants::multiline) != 0;
-//		s = (flags & regex_constants::dotall) != 0;
-
-#if !defined(SRELL_FIXEDWIDTHLOOKBEHIND)
-		back = false;
-#endif
-	}
-
-#if !defined(SRELL_FIXEDWIDTHLOOKBEHIND)
-	void restore_from(const re_flags &backup)
-#else
-	void restore_from(const re_flags &)
-#endif
-	{
-#if !defined(SRELL_FIXEDWIDTHLOOKBEHIND)
-		back = backup.back;
-#endif
-	}
-};
-//  re_flags
-
 template <typename charT>
-struct re_compiler_state : public re_flags
+struct re_compiler_state
 {
 	const ui_l32 *begin;
+	regex_constants::syntax_option_type soflags;
+
+	bool backref_used;
 
 #if !defined(SRELL_NO_NAMEDCAPTURE)
 	groupname_mapper<charT> unresolved_gnames;
@@ -3546,11 +3567,11 @@ struct re_compiler_state : public re_flags
 	identifier_charclass idchecker;
 #endif
 
-	void reset(const regex_constants::syntax_option_type flags, const ui_l32 *const b)
+	void reset(const regex_constants::syntax_option_type f, const ui_l32 *const b)
 	{
-		re_flags::reset(flags);
-
 		begin = b;
+		soflags = f;
+		backref_used = false;
 
 #if !defined(SRELL_NO_NAMEDCAPTURE)
 		unresolved_gnames.clear();
@@ -3560,6 +3581,26 @@ struct re_compiler_state : public re_flags
 #if !defined(SRELL_NO_UNICODE_PROPERTY)
 //		idchecker.clear();	//  Keeps data once created.
 #endif
+	}
+
+	bool is_back() const
+	{
+		return (soflags & regex_constants::back_) ? true : false;
+	}
+
+	bool is_icase() const
+	{
+		return (soflags & regex_constants::icase) ? true : false;
+	}
+
+	bool is_multiline() const
+	{
+		return (soflags & regex_constants::multiline) ? true : false;
+	}
+
+	bool is_dotall() const
+	{
+		return (soflags & regex_constants::dotall) ? true : false;
 	}
 };
 //  re_compiler_state
@@ -4511,7 +4552,6 @@ struct posdata_holder
 			//elen == 0: Padding.
 		}
 
-//		if (this->is_icase())
 		if (icase)
 			ranges.make_caseunfoldedcharset();
 
@@ -4930,7 +4970,7 @@ protected:
 			u32.push_backncr(u32c);
 		}
 
-		if (!compile_core(u32.data(), u32.data() + u32.size(), flags))
+		if (!compile_core(u32.data(), u32.data() + u32.size(), flags & regex_constants::pflagsmask_))
 		{
 			COMPILING_FAILURE:
 #if !defined(SRELLDBG_NO_BMH)
@@ -4947,14 +4987,6 @@ protected:
 		return true;
 	}
 
-	bool is_icase() const
-	{
-#if !defined(SRELL_NO_ICASE)
-		if (this->soflags & regex_constants::icase)
-			return true;
-#endif
-		return false;
-	}
 	bool is_ricase() const
 	{
 #if !defined(SRELL_NO_ICASE)
@@ -4962,18 +4994,6 @@ protected:
 #else
 		return false;
 #endif
-	}
-
-	bool is_multiline() const
-	{
-		if (this->soflags & regex_constants::multiline)
-			return true;
-		return false;
-	}
-
-	bool is_dotall() const
-	{
-		return (this->soflags & regex_constants::dotall) ? true : false;
 	}
 
 	bool is_vmode() const
@@ -4984,11 +5004,6 @@ protected:
 		return false;
 #endif
 
-	}
-
-	bool is_optimize() const
-	{
-		return (this->soflags & regex_constants::optimize) ? true : false;
 	}
 
 private:
@@ -5017,7 +5032,6 @@ private:
 		state_type flstate;
 
 		this->reset(flags);
-//		this->soflags = flags;
 		cvars.reset(flags, begin);
 
 		flstate.reset(st_epsilon);
@@ -5034,9 +5048,6 @@ private:
 		if (begin != end)
 			return this->set_error(regex_constants::error_paren);	//  ')'s are too many.
 
-		if (!check_backreferences(cvars))
-			return this->set_error(regex_constants::error_backref);
-
 #if !defined(SRELLDBG_NO_BMH)
 		setup_bmhdata();
 #endif
@@ -5046,7 +5057,10 @@ private:
 		flstate.next2 = 0;
 		this->NFA_states.push_back(flstate);
 
-		optimise();
+		if (cvars.backref_used && !check_backreferences(cvars))
+			return this->set_error(regex_constants::error_backref);
+
+		optimise(cvars);
 		relativejump_to_absolutejump();
 
 		return true;
@@ -5054,8 +5068,10 @@ private:
 
 	bool make_nfa_states(state_array &piece, re_quantifier &piecesize, const ui_l32 *&curpos, const ui_l32 *const end, cvars_type &cvars)
 	{
+#if !defined(SRELL_NO_NAMEDCAPTURE)
 		const ui_l32 gno_at_groupbegin = this->number_of_brackets;
 		bool already_pushed = false;
+#endif
 		state_size_type prevbranch_end = 0;
 		state_type bstate;
 		state_array branch;
@@ -5083,6 +5099,7 @@ private:
 				bstate.next2 = static_cast<std::ptrdiff_t>(branch.size()) + 2;
 				branch.insert(0, bstate);
 
+#if !defined(SRELL_NO_NAMEDCAPTURE)
 				if (gno_at_groupbegin != this->number_of_brackets)
 				{
 					if (!already_pushed)
@@ -5094,6 +5111,7 @@ private:
 					else
 						cvars.dupranges.back() = this->number_of_brackets;
 				}
+#endif
 			}
 
 			if (prevbranch_end)
@@ -5126,6 +5144,7 @@ private:
 		state_array piece_with_quantifier;
 		re_quantifier quantifier;
 		re_quantifier piecesize;
+		range_pairs tmpcc;
 		state_type astate;
 #if !defined(SRELL_NO_VMODE) && !defined(SRELL_NO_UNICODE_PROPERTY)
 		posdata_holder pos;
@@ -5161,25 +5180,39 @@ private:
 
 					if (pos.may_contain_strings())
 					{
-						transform_seqdata(piece, pos);
+						transform_seqdata(piece, pos, cvars);
 						piecesize.set(pos.length.first, pos.length.second);
 						goto AFTER_PIECE_SET;
 					}
-
-					astate.reset(st_character, pos.ranges.consists_of_one_character(this->is_icase()));
-
-					if (astate.char_num == constants::invalid_u32value)
-					{
-						astate.type = st_character_class;
-						astate.char_num = this->character_class.register_newclass(pos.ranges);
-					}
+					tmpcc.swap(pos.ranges);
 				}
 				else	//  U-mode.
 #endif
-				if (!register_character_class(astate, curpos, end, cvars))
+				if (!register_character_class(tmpcc, astate, curpos, end, cvars))
 					return false;
 
-				break;
+				astate.char_num = tmpcc.consists_of_one_character((regex_constants::icase & this->soflags & cvars.soflags) ? true : false);
+
+				if (astate.char_num != constants::invalid_u32value)
+				{
+					const ui_l32 cf = unicode_case_folding::try_casefolding(astate.char_num);
+
+					if ((this->soflags ^ cvars.soflags) & regex_constants::icase)
+					{
+						if (cf != constants::invalid_u32value)
+							goto REGISTER_CC;
+					}
+					else if (cvars.is_icase() && cf != constants::invalid_u32value)
+						this->NFA_states[0].flags |= astate.flags = sflags::icase;
+				}
+				else
+				{
+					REGISTER_CC:
+					astate.type = st_character_class;
+					astate.char_num = this->character_class.register_newclass(tmpcc);
+				}
+
+				goto SKIP_ICASE_CHECK_FOR_CHAR;
 
 			case meta_char::mc_escape:	//  '\\':
 				if (curpos == end)
@@ -5197,7 +5230,7 @@ private:
 
 					if (astate.type != st_character_class)
 					{
-						transform_seqdata(piece, pos);
+						transform_seqdata(piece, pos, cvars);
 						piecesize.set(astate.quantifier.atleast, astate.quantifier.atmost);
 						goto AFTER_PIECE_SET;
 					}
@@ -5216,7 +5249,7 @@ private:
 				case char_alnum::ch_b:	//  'b':
 					astate.type = st_boundary;	//  \b, \B.
 					astate.quantifier.reset(0);
-					if (this->is_icase())
+					if (cvars.is_icase())
 					{
 						this->character_class.setup_icase_word();
 						astate.char_num = static_cast<ui_l32>(re_character_class::icase_word);
@@ -5275,14 +5308,16 @@ private:
 						astate.type = st_backreference;
 						astate.quantifier.atleast = 0;
 
-						if (this->is_icase())
+						cvars.backref_used = true;
+
+						if (cvars.is_icase())
 							astate.flags |= sflags::icase;
 
 						goto AFTER_INCREMENT;
 					}
 
 					++curpos;
-					if (!translate_escape(NULL, astate, curpos, end, false, false))
+					if (!translate_escape(NULL, astate, curpos, end, false, false, cvars))
 						return false;
 					goto AFTER_INCREMENT;
 				}
@@ -5295,17 +5330,17 @@ private:
 			case meta_char::mc_period:	//  '.':
 				astate.type = st_character_class;
 #if !defined(SRELL_NO_SINGLELINE)
-				if (this->is_dotall())
+				if (cvars.is_dotall())
 				{
 					astate.char_num = static_cast<ui_l32>(re_character_class::dotall);
 				}
 				else
 #endif
 				{
-					range_pairs nlclass = this->character_class[static_cast<ui_l32>(re_character_class::newline)];
+					tmpcc = this->character_class[static_cast<ui_l32>(re_character_class::newline)];
 
-					nlclass.negation();
-					astate.char_num = this->character_class.register_newclass(nlclass);
+					tmpcc.negation();
+					astate.char_num = this->character_class.register_newclass(tmpcc);
 				}
 				break;
 
@@ -5313,8 +5348,7 @@ private:
 				astate.type = st_bol;
 				astate.char_num = static_cast<ui_l32>(re_character_class::newline);
 				astate.quantifier.reset(0);
-//				if (current_flags.m)
-				if (is_multiline())
+				if (cvars.is_multiline())
 					astate.flags = sflags::multiline;
 				break;
 
@@ -5322,8 +5356,7 @@ private:
 				astate.type = st_eol;
 				astate.char_num = static_cast<ui_l32>(re_character_class::newline);
 				astate.quantifier.reset(0);
-//				if (current_flags.m)
-				if (is_multiline())
+				if (cvars.is_multiline())
 					astate.flags = sflags::multiline;
 				break;
 
@@ -5336,16 +5369,28 @@ private:
 			default:;
 			}
 
-			if (astate.type == st_character && this->is_icase())
+			if (astate.type == st_character && ((this->soflags | cvars.soflags) & regex_constants::icase))
 			{
 				const ui_l32 cf = unicode_case_folding::try_casefolding(astate.char_num);
 
 				if (cf != constants::invalid_u32value)
 				{
-					astate.char_num = cf;
-					astate.flags = this->NFA_states[0].flags = sflags::icase;
+					if ((this->soflags ^ cvars.soflags) & regex_constants::icase)
+					{
+						tmpcc.set_solerange(range_pair_helper(astate.char_num));
+						if (cvars.is_icase())
+							tmpcc.make_caseunfoldedcharset();
+						astate.char_num = this->character_class.register_newclass(tmpcc);
+						astate.type = st_character_class;
+					}
+					else
+					{
+						astate.char_num = cf;
+						this->NFA_states[0].flags |= astate.flags = sflags::icase;
+					}
 				}
 			}
+			SKIP_ICASE_CHECK_FOR_CHAR:
 
 			piece.push_back(astate);
 			piecesize = astate.quantifier;
@@ -5429,7 +5474,7 @@ private:
 
 #if !defined(SRELL_FIXEDWIDTHLOOKBEHIND)
 
-				if (!cvars.back)
+				if (!cvars.is_back())
 					branch += piece_with_quantifier;
 				else
 					branch.insert(0, piece_with_quantifier);
@@ -5444,7 +5489,7 @@ private:
 
 	bool parse_group(state_array &piece, re_quantifier &piecesize, const ui_l32 *&curpos, const ui_l32 *const end, cvars_type &cvars)
 	{
-		const re_flags originalflags(cvars);
+		const regex_constants::syntax_option_type originalflags(cvars.soflags);
 		state_type rbstate;
 
 		if (curpos == end)
@@ -5503,9 +5548,7 @@ private:
 
 			case meta_char::mc_eq:	//  '=':
 #if !defined(SRELL_FIXEDWIDTHLOOKBEHIND)
-				cvars.back = lookbehind;
-#else
-//				rbstate.reverse = lookbehind;
+				cvars.soflags = lookbehind ? (cvars.soflags | regex_constants::back_) : (cvars.soflags & ~regex_constants::back_);
 #endif
 
 #if defined(SRELL_ENABLE_GT)
@@ -5522,9 +5565,6 @@ private:
 				break;
 
 			default:
-#if defined(SRELL_NO_UBMOD)
-				return this->set_error(regex_constants::error_paren);
-#else
 				{
 					const u32array_size_type boffset = curpos - cvars.begin;
 					regex_constants::syntax_option_type modified = regex_constants::ECMAScript;
@@ -5536,27 +5576,35 @@ private:
 					{
 						switch (rbstate.char_num)
 						{
-#if 0
+#if defined(SRELL_ENABLE_MODIFIERS)
 						case meta_char::mc_colon:	//  ':':
 							//  (?ims-ims:...)
+							if (modified != regex_constants::ECMAScript)
+								goto COLON_FOUND;
+
+							flagerror = true;
 							break;
 #endif
+#if !defined(SRELL_NO_UBMOD)
 						case meta_char::mc_rbracl:	//  ')':
-							if (boffset == 2 && modified != regex_constants::ECMAScript)
+							if (modified != regex_constants::ECMAScript)
 							{
-								this->soflags = localflags;
-								rbstate.type = st_roundbracket_close;
-								++curpos;
-								return true;
+								cvars.soflags = localflags;
+								if (boffset == 2)
+									this->soflags = localflags;
+
+								if (boffset == 2)	//  Restricts so that unbounded forms (?ims-ims) can be used only at the beginning of an expression.
+								{
+									rbstate.type = st_roundbracket_close;
+									++curpos;
+									return true;
+								}
 							}
 							flagerror = true;	//  "(?)" or "(?-)"
 							break;
-
+#endif
 						case meta_char::mc_minus:	//  '-':
-							if (negate)
-								flagerror = true;
-							else
-								negate = true;
+							(negate ? flagerror : negate) = true;
 							break;
 
 						case char_alnum::ch_i:	//  'i':
@@ -5590,6 +5638,7 @@ private:
 							break;
 
 #if 0
+//  Although ECMAScript does not support v-flag modification, SRELL can.
 #if !defined(SRELL_NO_VMODE) && !defined(SRELL_NO_UNICODE_PROPERTY)
 
 						case char_alnum::ch_v:	//  'v':
@@ -5615,8 +5664,11 @@ private:
 
 						rbstate.char_num = *curpos;
 					}
+#if defined(SRELL_ENABLE_MODIFIERS)
+					COLON_FOUND:;
+					cvars.soflags = localflags;
+#endif
 				}
-#endif	//  defined(SRELL_NO_UBMOD)
 				//@fallthrough@
 
 			case meta_char::mc_colon:
@@ -5635,8 +5687,8 @@ private:
 		if (rbstate.type == st_roundbracket_open)
 		{
 			rbstate.char_num = this->number_of_brackets;
-			rbstate.next1  = 2;
-			rbstate.next2  = 1;
+			rbstate.next1 = 2;
+			rbstate.next2 = 1;
 			piece.push_back(rbstate);
 			++this->number_of_brackets;
 
@@ -5646,7 +5698,9 @@ private:
 			piece.push_back(rbstate);
 		}
 
+#if !defined(SRELL_NO_NAMEDCAPTURE)
 		const typename simple_array<ui_l32>::size_type dzsize = cvars.dupranges.size();
+#endif
 
 		if (!make_nfa_states(piece, piecesize, curpos, end, cvars))
 			return false;
@@ -5657,8 +5711,10 @@ private:
 
 		++curpos;
 
+#if !defined(SRELL_NO_NAMEDCAPTURE)
 		cvars.dupranges.resize(dzsize);
-		cvars.restore_from(originalflags);
+#endif
+		cvars.soflags = originalflags;
 
 		state_type &firststate = piece[0];
 
@@ -5936,9 +5992,8 @@ private:
 
 	//  '['.
 
-	bool register_character_class(state_type &castate, const ui_l32 *&curpos, const ui_l32 *const end, const cvars_type & /* cvars */)
+	bool register_character_class(range_pairs &ranges, state_type &castate, const ui_l32 *&curpos, const ui_l32 *const end, const cvars_type &cvars)
 	{
-		range_pairs ranges;
 		range_pair code_range;
 		state_type rstate;
 		range_pairs curranges;
@@ -5946,7 +6001,7 @@ private:
 		if (curpos == end)
 			return this->set_error(regex_constants::error_brack);
 
-		castate.type = st_character_class;
+		ranges.clear();
 
 		if (*curpos == meta_char::mc_caret)	//  '^'
 		{
@@ -5964,7 +6019,7 @@ private:
 
 			rstate.reset();
 
-			if (!get_character_in_class(curranges, rstate, curpos, end))
+			if (!get_character_in_class(curranges, rstate, curpos, end, cvars))
 				return false;
 
 			if (rstate.type == st_character_class)
@@ -6004,7 +6059,7 @@ private:
 				}
 				else
 				{
-					if (!get_character_in_class(curranges, rstate, curpos, end))
+					if (!get_character_in_class(curranges, rstate, curpos, end, cvars))
 						return false;
 
 					if (rstate.type == st_character_class)
@@ -6024,7 +6079,7 @@ private:
 
 		//  *curpos == ']'
 		++curpos;
-		if (this->is_icase())
+		if (cvars.is_icase())
 			ranges.make_caseunfoldedcharset();
 
 		if (castate.flags)	//  is_not.
@@ -6033,17 +6088,10 @@ private:
 			castate.flags = 0u;
 		}
 
-		castate.char_num = ranges.consists_of_one_character(this->is_icase());
-
-		if (castate.char_num != constants::invalid_u32value)
-			castate.type = st_character;
-		else
-			castate.char_num = this->character_class.register_newclass(ranges);
-
 		return true;
 	}
 
-	bool get_character_in_class(range_pairs &rp, state_type &rstate, const ui_l32 *&curpos, const ui_l32 *const end /* , const re_compiler_state &cvars */)
+	bool get_character_in_class(range_pairs &rp, state_type &rstate, const ui_l32 *&curpos, const ui_l32 *const end, const cvars_type &cvars)
 	{
 		rstate.char_num = *curpos++;
 
@@ -6057,7 +6105,7 @@ private:
 
 		rstate.char_num = *curpos++;
 
-		return translate_escape(&rp, rstate, curpos, end, true, false);
+		return translate_escape(&rp, rstate, curpos, end, true, false, cvars);
 	}
 
 	void add_predefclass_to_charclass(range_pairs &cls, const state_type &castate)
@@ -6192,10 +6240,7 @@ private:
 			else if (otype == op_firstcc)
 				otype = op_union;
 
-			if (castate.type == st_character_class)
-			{
-			}
-			else if (castate.type == st_character)
+			if (castate.type == st_character)
 			{
 				if (!newpos.has_data())
 				{
@@ -6229,7 +6274,7 @@ private:
 					}
 
 					newpos.ranges.join(code_range);
-					if (this->is_icase())
+					if (cvars.is_icase())
 						newpos.ranges.make_caseunfoldedcharset();
 				}
 			}
@@ -6374,9 +6419,9 @@ private:
 
 				++curpos;
 #if !defined(SRELL_FIXEDWIDTHLOOKBEHIND)
-				pos.split_seqs_and_ranges(seqs, this->is_icase(), cvars.back);
+				pos.split_seqs_and_ranges(seqs, cvars.is_icase(), cvars.is_back());
 #else
-				pos.split_seqs_and_ranges(seqs, this->is_icase(), false);
+				pos.split_seqs_and_ranges(seqs, cvars.is_icase(), false);
 #endif
 
 				return true;
@@ -6405,12 +6450,12 @@ private:
 		default:;
 		}
 
-		return translate_escape(&pos.ranges, castate, curpos, end, true, no_ccesc);
+		return translate_escape(&pos.ranges, castate, curpos, end, true, no_ccesc, cvars);
 	}
 
 #endif	//  !defined(SRELL_NO_VMODE) && !defined(SRELL_NO_UNICODE_PROPERTY)
 
-	bool translate_escape(range_pairs *const rp, state_type &eastate, const ui_l32 *&curpos, const ui_l32 *const end, const bool insidecharclass, const bool no_ccesc)
+	bool translate_escape(range_pairs *const rp, state_type &eastate, const ui_l32 *&curpos, const ui_l32 *const end, const bool insidecharclass, const bool no_ccesc, const cvars_type &cvars)
 	{
 		if (!no_ccesc)
 		{
@@ -6438,7 +6483,7 @@ private:
 				//@fallthrough@
 
 			case char_alnum::ch_w:	//  'w':
-				if (this->is_icase())
+				if (cvars.is_icase())
 				{
 					this->character_class.setup_icase_word();
 					eastate.char_num = static_cast<ui_l32>(re_character_class::icase_word);
@@ -6470,7 +6515,7 @@ private:
 						eastate.flags = 0u;
 					}
 
-					if (!insidecharclass && this->is_icase())
+					if (!insidecharclass && cvars.is_icase())
 						pranges->make_caseunfoldedcharset();
 
 					if (rp == NULL)
@@ -6599,7 +6644,6 @@ private:
 
 		if (*curpos == meta_char::mc_cbraop)
 		{
-//			ucp = translate_numbers(++curpos, end, 16, 1, 6, constants::unicode_max_codepoint, true);
 			ucp = translate_numbers(++curpos, end, 16, 1, 0, constants::unicode_max_codepoint);
 
 			if (curpos == end || *curpos != meta_char::mc_cbracl)
@@ -6762,12 +6806,7 @@ private:
 
 #if !defined(SRELL_NO_VMODE) && !defined(SRELL_NO_UNICODE_PROPERTY)
 
-	bool parse_escape_p_vmode(posdata_holder &pos, state_type &ccepastate, const ui_l32 *&curpos, const ui_l32 *const end,
-#if !defined(SRELL_FIXEDWIDTHLOOKBEHIND)
-		const cvars_type &cvars)
-#else
-		const cvars_type &)
-#endif
+	bool parse_escape_p_vmode(posdata_holder &pos, state_type &ccepastate, const ui_l32 *&curpos, const ui_l32 *const end, const cvars_type &cvars)
 	{
 		if (curpos == end)
 			return this->set_error(regex_constants::error_escape);
@@ -6786,7 +6825,7 @@ private:
 
 			this->character_class.load_upranges(pos.ranges, ccepastate.char_num);
 
-			if (this->is_icase() && ccepastate.char_num >= static_cast<ui_l32>(re_character_class::number_of_predefcls))
+			if (cvars.is_icase() && ccepastate.char_num >= static_cast<ui_l32>(re_character_class::number_of_predefcls))
 				pos.ranges.make_caseunfoldedcharset();
 
 			if (ccepastate.flags)	//  is_not.
@@ -6804,9 +6843,9 @@ private:
 
 			this->character_class.get_prawdata(sequences, ccepastate.char_num);
 #if !defined(SRELL_FIXEDWIDTHLOOKBEHIND)
-			pos.split_seqs_and_ranges(sequences, this->is_icase(), cvars.back);
+			pos.split_seqs_and_ranges(sequences, cvars.is_icase(), cvars.is_back());
 #else
-			pos.split_seqs_and_ranges(sequences, this->is_icase(), false);
+			pos.split_seqs_and_ranges(sequences, cvars.is_icase(), false);
 #endif
 
 			ccepastate.quantifier.set(pos.length.first, pos.length.second);
@@ -6817,7 +6856,7 @@ private:
 		return true;
 	}
 
-	ui_l32 transform_seqdata(state_array &piece, const posdata_holder &pos)
+	ui_l32 transform_seqdata(state_array &piece, const posdata_holder &pos, const cvars_type &cvars)
 	{
 		ui_l32 seqlen = static_cast<ui_l32>(pos.indices.size());
 		state_type castate;
@@ -6864,7 +6903,7 @@ private:
 						state_type *const ost = &branch[count++];
 
 						ost->char_num = seqch & masks::pos_char;
-						this->NFA_states[0].flags |= ost->flags = seqch >> constants::pos_charbits;	//  icase.
+						this->NFA_states[0].flags |= ost->flags = (seqch & masks::pos_cf) ? sflags::icase : 0u;
 
 						if (count == seqlen)
 						{
@@ -6889,7 +6928,7 @@ private:
 
 									bst.next1 = bst.next1 - pst.next1;
 									bst.next2 = bst.next2 ? (bst.next2 - pst.next1) : 0;
-									bst.flags |= sflags::hooked;
+									bst.flags |= sflags::hookedlast;
 									goto SKIP_APPEND;
 								}
 
@@ -6987,6 +7026,49 @@ private:
 				reorder_piece(piece);
 #endif
 
+			if ((this->soflags ^ cvars.soflags) & regex_constants::icase)
+			{
+				range_pairs charclass;
+
+				if (cvars.is_icase())
+				{
+					ui_l32 ucftable[ucf_constants::rev_maxset] = {};
+
+					for (state_size_type i = 0; i < piece.size(); ++i)
+					{
+						state_type &st = piece[i];
+
+						if (st.type == st_character && (st.flags & sflags::icase))
+						{
+							const ui_l32 setnum = unicode_case_folding::do_caseunfolding(ucftable, st.char_num);
+
+							charclass.clear();
+							for (ui_l32 j = 0; j < setnum; ++j)
+								charclass.join(range_pair_helper(ucftable[j]));
+
+							st.char_num = this->character_class.register_newclass(charclass);
+							st.type = st_character_class;
+							st.flags = 0u;	//  icase.
+						}
+					}
+				}
+				else
+				{
+					charclass.resize(1);
+					for (state_size_type i = 0; i < piece.size(); ++i)
+					{
+						state_type &st = piece[i];
+
+						if (st.type == st_character && unicode_case_folding::try_casefolding(st.char_num) != constants::invalid_u32value)
+						{
+							charclass[0] = range_pair_helper(st.char_num);
+
+							st.type = st_character_class;
+							st.char_num = this->character_class.register_newclass(charclass);
+						}
+					}
+				}
+			}
 		}
 		return castate.char_num;
 	}
@@ -7038,14 +7120,10 @@ private:
 	bool check_backreferences(cvars_type &cvars)
 	{
 		const state_size_type orgsize = this->NFA_states.size();
-		bool hooked = false;
 		simple_array<bool> gno_found;
 		state_array additions;
 
 		gno_found.resize(this->number_of_brackets, false);
-
-		this->NFA_states.push_back(state_type());
-		this->NFA_states.back().reset(st_success);
 
 		for (state_size_type backrefpos = 1; backrefpos < orgsize; ++backrefpos)
 		{
@@ -7102,19 +7180,18 @@ private:
 						const std::ptrdiff_t lastabs = static_cast<std::ptrdiff_t>(this->NFA_states.size() + additions.size() - 1);
 						state_type &laststate = additions.back();
 
-						laststate.flags |= sflags::hooked;
+						laststate.flags |= sflags::hookedlast;
 						laststate.next1 = static_cast<std::ptrdiff_t>(next1abs - lastabs);
 						laststate.next2 = static_cast<std::ptrdiff_t>(next2abs - lastabs);
-						hooked = true;
+						this->NFA_states += additions;
+						additions.clear();
 					}
-					this->NFA_states += additions;
-					additions.clear();
 				}
 				else
 #endif
 				{
 
-					if (!gno_found[backrefno])
+					if (backrefno >= this->number_of_brackets || !gno_found[backrefno])
 					{
 						REMOVE_BACKREF:
 						if (brs.next1 == -1)
@@ -7136,9 +7213,9 @@ private:
 				}
 			}
 		}
-		if (hooked)
+		if (orgsize != this->NFA_states.size())
 			reorder_piece(this->NFA_states);
-		this->NFA_states.pop_back();
+
 		return true;
 	}
 
@@ -7181,27 +7258,6 @@ private:
 		{
 			const range_pair &range = fcc[i];
 
-#if 0
-			ui_l32 second = range.second <= constants::unicode_max_codepoint ? range.second : constants::unicode_max_codepoint;
-
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-#pragma warning(push)
-#pragma warning(disable:4127)
-#endif
-			if (utf_traits::utftype == 16)
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-#pragma warning(pop)
-#endif
-			{
-				if (second >= 0x10000 && range.first < 0x10000)
-				{
-					this->firstchar_class_bs.set_range(utf_traits::firstcodeunit(0x10000) & utf_traits::bitsetmask, utf_traits::firstcodeunit(second) & utf_traits::bitsetmask);
-					second = 0xffff;
-				}
-			}
-			this->firstchar_class_bs.set_range(utf_traits::firstcodeunit(range.first) & utf_traits::bitsetmask, utf_traits::firstcodeunit(second) & utf_traits::bitsetmask);
-
-#else
 			for (ui_l32 ucp = range.first; ucp <= utf_traits::maxcpvalue; ++ucp)
 			{
 				const ui_l32 firstcu = utf_traits::firstcodeunit(ucp) & utf_traits::bitsetmask;
@@ -7225,7 +7281,6 @@ private:
 				if (ucp == range.second)
 					break;
 			}
-#endif
 		}
 #if !defined(SRELLDBG_NO_SCFINDER)
 		this->NFA_states[0].char_num = entrychar;
@@ -7248,7 +7303,7 @@ private:
 			checked[pos] = true;
 
 			if (state.next2
-					&& (state.type != st_check_counter || !state.quantifier.is_greedy || state.quantifier.atleast == 0)
+					&& (state.type != st_increment_counter)
 					&& (state.type != st_save_and_reset_counter)
 					&& (state.type != st_roundbracket_open)
 					&& (state.type != st_roundbracket_close || state.char_num != bracket_number)
@@ -7261,7 +7316,7 @@ private:
 			switch (state.type)
 			{
 			case st_character:
-				if (!this->is_ricase())
+				if (!(state.flags & sflags::icase))
 				{
 					nextcharclass.join(range_pair_helper(state.char_num));
 				}
@@ -7289,11 +7344,6 @@ private:
 
 			case st_eol:
 			case st_bol:
-				if (!subsequent)
-					break;
-
-				//@fallthrough@
-
 			case st_boundary:
 				if (subsequent)
 					nextcharclass.set_solerange(range_pair_helper(0, constants::unicode_max_codepoint));
@@ -7317,11 +7367,6 @@ private:
 
 			case st_success:	//  == st_lookaround_close.
 				return true;
-
-			case st_check_counter:
-				if (!state.quantifier.is_greedy && state.quantifier.atleast >= 1)
-					return canbe0length;
-				//@fallthrough@
 
 			default:;
 			}
@@ -7376,7 +7421,7 @@ private:
 		}
 	}
 
-	void optimise()
+	void optimise(const cvars_type &cvars)
 	{
 #if !defined(SRELLDBG_NO_BRANCH_OPT2) && !defined(SRELLDBG_NO_STATEHOOK)
 		branch_optimisation2();
@@ -7384,7 +7429,7 @@ private:
 
 #if !defined(SRELL_FIXEDWIDTHLOOKBEHIND) && !defined(SRELLDBG_NO_MPREWINDER)
 		if (!this->bmdata)
-			find_entrypoint();
+			find_better_es(1u, cvars);
 #endif
 
 #if !defined(SRELLDBG_NO_ASTERISK_OPT)
@@ -7446,7 +7491,9 @@ private:
 
 	void asterisk_optimisation()
 	{
-		for (state_size_type pos = 1u; pos < this->NFA_states.size(); ++pos)
+		const state_size_type orgsize = this->NFA_states.size();
+
+		for (state_size_type pos = 1u; pos < orgsize; ++pos)
 		{
 			state_type &curstate = this->NFA_states[pos];
 
@@ -7471,7 +7518,8 @@ private:
 						if (corccstate.next1 < 0)
 							corccstate.next1 = 0;
 
-						corccstate.next2 = nextno - pos;
+						if (corccstate.next2 == 0)
+							corccstate.next2 = nextno - pos;
 					}
 				}
 				continue;
@@ -7479,6 +7527,8 @@ private:
 			default:;
 			}
 		}
+		if (orgsize != this->NFA_states.size())
+			reorder_piece(this->NFA_states);
 	}
 
 	bool is_exclusive_sequence(const re_quantifier &eq, const state_size_type curno, const state_size_type nextno)	//  const
@@ -7490,6 +7540,8 @@ private:
 		if (curstate.type == st_character)
 		{
 			curchar_class.join(range_pair_helper(curstate.char_num));
+			if (curstate.flags & sflags::icase)
+				curchar_class.make_caseunfoldedcharset();
 		}
 		else if (curstate.type == st_character_class)
 		{
@@ -7523,37 +7575,30 @@ private:
 					{
 						state_type &curstate2 = this->NFA_states[curno];
 
-						curstate2.char_num = kept.consists_of_one_character(this->is_icase());
-						if (curstate2.char_num != constants::invalid_u32value)
-							curstate2.type = st_character;
-						else
-							curstate2.char_num = this->character_class.register_newclass(kept);
+						curstate2.char_num = this->character_class.register_newclass(kept);
+						curstate2.flags |= (sflags::hooking | sflags::byn2);
+						curstate2.next2 = this->NFA_states.size() - curno;
 					}
-					const re_quantifier backupeq(eq);
-
-					insert_at(nextno, 2);
-					state_type &n0 = this->NFA_states[nextno];
-					state_type &n1 = this->NFA_states[nextno + 1];
+					state_array additions;
+					additions.resize(2);
+					state_type &n0 = additions[0];
+					state_type &n1 = additions[1];
 
 					n0.reset(st_epsilon, epsilon_type::et_ccastrsk);
-					n0.quantifier = backupeq;
+					n0.quantifier = eq;
 //					n0.next2 = 1;
-					n0.next2 = 2;
+					n0.next2 = static_cast<std::ptrdiff_t>(nextno) - this->NFA_states.size();
 					if (!n0.quantifier.is_greedy)
 					{
 						n0.next1 = n0.next2;
 						n0.next2 = 1;
 					}
 
-					n1.reset(st_character_class, removed.consists_of_one_character(this->is_icase()));
-
-					if (n1.char_num != constants::invalid_u32value)
-						n1.type = st_character;
-					else
-						n1.char_num = this->character_class.register_newclass(removed);
-
-					n1.next1 = -2;
+					n1.reset(st_character_class, this->character_class.register_newclass(removed));
+					n1.next1 = static_cast<std::ptrdiff_t>(curno) - this->NFA_states.size() - 1;
 //					n1.next2 = 0;
+					n1.flags |= sflags::hookedlast;
+					this->NFA_states += additions;
 					return true;
 				}
 
@@ -7612,39 +7657,6 @@ private:
 	}
 #endif	//  !defined(SRELLDBG_NO_ASTERISK_OPT)
 
-	void insert_at(const state_size_type pos, const std::ptrdiff_t len)
-	{
-		state_type newstate;
-
-		for (state_size_type cur = 0; cur < pos; ++cur)
-		{
-			state_type &state = this->NFA_states[cur];
-
-			if (state.next1 && (cur + state.next1) >= pos)
-				state.next1 += len;
-
-			if (state.next2 && (cur + state.next2) >= pos)
-				state.next2 += len;
-		}
-
-		for (state_size_type cur = pos; cur < this->NFA_states.size(); ++cur)
-		{
-			state_type &state = this->NFA_states[cur];
-
-			if ((cur + state.next1) < pos)
-				state.next1 -= len;
-
-			if ((cur + state.next2) < pos)
-				state.next2 -= len;
-		}
-
-		newstate.reset(st_epsilon);
-		for (std::ptrdiff_t count = 0; count < len; ++count)
-			this->NFA_states.insert(pos, newstate);
-	}
-
-#if !defined(SRELLDBG_NO_STATEHOOK)
-
 	void reorder_piece(state_array &piece) const
 	{
 		simple_array<ui_l32> newpos;
@@ -7663,14 +7675,16 @@ private:
 
 				if (st.flags & sflags::hooking)
 				{
+					const std::ptrdiff_t next1or2 = (st.flags & sflags::byn2) ? (st.flags ^= sflags::byn2, st.next2) : st.next1;
 					st.flags ^= sflags::hooking;
-					for (ui_l32 i = static_cast<ui_l32>(indx + st.next1); i < piece.size(); ++i)
+
+					for (ui_l32 i = static_cast<ui_l32>(indx + next1or2); i < piece.size(); ++i)
 					{
 						++offset;
 						newpos[i] = indx + offset;
-						if (piece[i].flags & sflags::hooked)
+						if (piece[i].flags & sflags::hookedlast)
 						{
-							piece[i].flags ^= sflags::hooked;
+							piece[i].flags ^= sflags::hookedlast;
 							break;
 						}
 					}
@@ -7696,8 +7710,6 @@ private:
 		}
 		newpiece.swap(piece);
 	}
-
-#endif	//  !defined(SRELLDBG_NO_STATEHOOK)
 
 	bool check_if_backref_used(state_size_type pos, const ui_l32 number) const
 	{
@@ -7725,6 +7737,8 @@ private:
 			if (cst.type == st_character)
 			{
 				charclass.set_solerange(range_pair_helper(cst.char_num));
+				if (cst.flags & sflags::icase)
+					charclass.make_caseunfoldedcharset();
 				return pos;
 			}
 			else if (cst.type == st_character_class)
@@ -7809,7 +7823,6 @@ private:
 		if (this->bmdata)
 			delete this->bmdata;
 		this->bmdata = NULL;
-//		return true;
 	}
 #endif	//  !defined(SRELLDBG_NO_BMH)
 
@@ -7892,7 +7905,7 @@ private:
 
 										next1ref.next1 = next2pos - next1pos;
 										next1ref.flags |= sflags::hooking;
-										nstate2.flags |= sflags::hooked;
+										nstate2.flags |= sflags::hookedlast;
 										hooked = true;
 									}
 									else
@@ -7918,7 +7931,7 @@ private:
 
 										next1ref.next1 = next2next1pos - next1pos;
 										next1ref.flags |= sflags::hooking;
-										becomes_unused.flags |= sflags::hooked;
+										becomes_unused.flags |= sflags::hookedlast;
 										hooked = true;
 									}
 									else
@@ -7966,182 +7979,6 @@ private:
 
 #if !defined(SRELL_FIXEDWIDTHLOOKBEHIND) && !defined(SRELLDBG_NO_MPREWINDER)
 
-	void find_entrypoint()
-	{
-		if (find_singlechar_ep(1u))
-			return;
-
-		find_better_ep(1u);
-	}
-
-	bool find_singlechar_ep(state_size_type cur)
-	{
-		state_size_type curatompos = 0;
-		state_size_type singlecharpos = 0;
-		state_size_type seqpos = 0;
-		ui_l32 prevchar = constants::invalid_u32value;
-		ui_l32 charcount = 0;
-		bool needs_rerun = false;
-
-		for (; cur < this->NFA_states.size();)
-		{
-			const state_type &state = this->NFA_states[cur];
-
-			switch (state.type)
-			{
-			case st_character:
-				curatompos = cur;
-				ST_CHARACTER:
-				if (prevchar != constants::invalid_u32value)
-					seqpos = curatompos;
-
-				singlecharpos = curatompos;
-				++charcount;
-				prevchar = this->NFA_states[cur].char_num;
-				++cur;
-				continue;
-
-			case st_character_class:
-				prevchar = constants::invalid_u32value;
-				++cur;
-				continue;
-
-			case st_epsilon:
-				if (state.next2 == 0)
-				{
-					if (state.char_num == epsilon_type::et_jmpinlp)
-					{
-						const state_size_type rapos = cur + state.next1;
-						const state_type &repatom = this->NFA_states[rapos];
-
-						if (repatom.type == st_character)
-						{
-							curatompos = cur;
-							cur = rapos;
-							needs_rerun = true;
-							goto ST_CHARACTER;
-						}
-						prevchar = constants::invalid_u32value;
-						cur = rapos;
-					}
-					else
-						++cur;
-					continue;
-				}
-
-				if ((state.char_num == epsilon_type::et_ccastrsk)
-					|| ((state.char_num == epsilon_type::et_dfastrsk)
-						&& (is_reversible_atom(cur + state.nearnext(), true))))
-				{
-					cur += state.farnext();
-					needs_rerun = true;
-					prevchar = constants::invalid_u32value;
-					continue;
-				}
-				break;
-
-			case st_save_and_reset_counter:
-				{
-					const state_size_type ccpos = cur + state.next1;
-					const state_size_type rapos = ccpos + 3;
-					const state_type &ccstate = this->NFA_states[ccpos];
-					const state_type &repatom = this->NFA_states[rapos];
-
-					if (ccstate.quantifier.atleast > 0 && repatom.type == st_character)
-					{
-						curatompos = cur;
-						cur = rapos;
-						needs_rerun = true;
-						goto ST_CHARACTER;
-					}
-
-					if (is_reversible_atom(rapos, ccstate.quantifier.atleast == 0))
-					{
-						cur = ccpos + ccstate.farnext();
-						needs_rerun = true;
-						prevchar = constants::invalid_u32value;
-						continue;
-					}
-				}
-				break;
-
-			case st_check_counter:
-				cur += state.farnext();
-				continue;
-
-			case st_roundbracket_open:
-				if (check_if_backref_used(cur + 1, state.char_num))
-					break;
-				needs_rerun = true;
-				//@fallthrough@
-
-			case st_repeat_in_push:
-				cur += state.next1;
-				continue;
-
-			case st_check_0_width_repeat:
-				cur += state.next2;
-				continue;
-
-			case st_roundbracket_close:
-			case st_bol:
-			case st_eol:
-			case st_boundary:
-				++cur;
-				continue;
-
-			//  Not supported: backreference, lookaround_open.
-			//  NFA_states broken if appeares: restore_counter, increment_counter, decrement_counter,
-			//    roundbracket_pop, repeat_in_pop, lookaround_pop.
-			//  Finish: success (== lookaround_close).
-			default:
-				break;
-			}
-			break;
-		}
-
-		return seqpos != 0
-			? (create_rewinder(seqpos, needs_rerun), true)
-			: (charcount > 1 ? (create_rewinder(singlecharpos, needs_rerun), true) : false);
-	}
-
-	bool is_reversible_atom(const state_size_type pos, const bool check_optseq) const
-	{
-		const state_type &s = this->NFA_states[pos];
-		state_size_type end = 0u;
-
-		if (s.type == st_character || s.type == st_character_class)
-			return true;
-
-		if (check_optseq)
-			return false;	//  Optional sequence (?, *, {0,m}) found.
-			//  Not only at the beginning but also at any position does
-			//  an optional sequence need measures to be taken:
-			//  "2000-1-1" =~ /\d(\d+-)?\d{1,2}-\d{1,2}/
-
-		switch (s.type)
-		{
-		case st_epsilon:
-			if (s.next2 == 0 && s.char_num == epsilon_type::et_ncgopen)
-				end = skip_group(this->NFA_states, pos);
-			break;
-
-		case st_roundbracket_open:
-			if (check_if_backref_used(pos + 1, s.char_num))
-				return false;
-
-			end = skip_bracket(s.char_num, this->NFA_states, pos);
-			break;
-
-		case st_repeat_in_push:
-			end = skip_0width_checker(s.char_num, this->NFA_states, pos);
-			//@fallthrough@
-
-		default:;
-		}
-		return end != 0u && !has_obstacle_to_reverse(pos, end, false);
-	}
-
 	bool has_obstacle_to_reverse(state_size_type pos, const state_size_type end, const bool check_optseq) const
 	{
 		for (; pos < end;)
@@ -8152,7 +7989,7 @@ private:
 			{
 				if (s.char_num == epsilon_type::et_alt)
 					return true;
-					//  The rewinder cannot support Disjunction because forward matching
+					//  The rewinder cannot support Alternatives because forward matching
 					//  and backward matching can go through different routes:
 					//  * In a forward search /(?:.|ab)c/ against "abc" matches "abc",
 					//    while in a backward search from 'c' it matches "bc".
@@ -8168,7 +8005,7 @@ private:
 						continue;
 					}
 
-					if (s.char_num == epsilon_type::et_dfastrsk && s.next2 != 0 && !this->NFA_states[pos + s.nearnext()].is_character_or_class())
+					if (s.char_num == epsilon_type::et_dfastrsk && !this->NFA_states[pos + s.nearnext()].is_character_or_class())
 						return true;
 				}
 
@@ -8233,13 +8070,13 @@ private:
 		return 0u;
 	}
 
-	void create_rewinder(const state_size_type end, const bool needs_rerun)
+	void create_rewinder(const state_size_type end, const int needs_rerun, const cvars_type &cvars)
 	{
 		state_array newNFAs;
 		state_type rwstate;
 
 		newNFAs.append(this->NFA_states, 1u, end - 1u);
-		if (!reverse_atoms(newNFAs) || newNFAs.size() == 0u)
+		if (!reverse_atoms(newNFAs, cvars) || newNFAs.size() == 0u)
 			return;
 
 		rwstate.reset(st_lookaround_pop, meta_char::mc_eq);
@@ -8270,7 +8107,7 @@ private:
 		this->NFA_states[0].next2 = static_cast<std::ptrdiff_t>(newNFAs.size()) + 1;
 	}
 
-	bool reverse_atoms(state_array &NFAs)
+	bool reverse_atoms(state_array &NFAs, const cvars_type &cvars)
 	{
 		state_array revNFAs;
 		state_array atomseq;
@@ -8309,7 +8146,7 @@ private:
 			default:;
 			}
 
-			const state_size_type boundary = find_atom_boundary(NFAs, cur, NFAs.size());
+			const state_size_type boundary = find_atom_boundary(NFAs, cur, NFAs.size(), false);
 
 			if (boundary == 0u || cur == boundary)
 				return false;
@@ -8317,7 +8154,7 @@ private:
 			atomseq.clear();
 			atomseq.append(NFAs, cur, boundary - cur);
 
-			if (!mend_for_reverse(atomseq))
+			if (!mend_for_reverse(atomseq, cvars))
 			{
 				return false;
 			}
@@ -8329,7 +8166,7 @@ private:
 		return true;
 	}
 
-	bool mend_for_reverse(state_array &atoms)
+	bool mend_for_reverse(state_array &atoms, const cvars_type &cvars)
 	{
 		for (state_size_type pos = 0; pos < atoms.size(); ++pos)
 		{
@@ -8338,7 +8175,7 @@ private:
 			switch (s.type)
 			{
 			case st_roundbracket_open:
-				if (!check_if_backref_used(pos + 1, s.char_num))
+				if (!cvars.backref_used || !check_if_backref_used(pos + 1, s.char_num))
 				{
 					const state_size_type end = skip_bracket(s.char_num, atoms, pos);
 
@@ -8347,7 +8184,7 @@ private:
 						pos += 2;
 						state_array rev(atoms, pos, end - pos);
 
-						if (reverse_atoms(rev) && (end - pos) == rev.size())
+						if (reverse_atoms(rev, cvars) && (end - pos) == rev.size())
 						{
 							if (s.quantifier.is_greedy)
 							{
@@ -8390,7 +8227,7 @@ private:
 						++pos;
 						state_array rev(atoms, pos, end - pos);
 
-						if (reverse_atoms(rev) && (end - pos) == rev.size())
+						if (reverse_atoms(rev, cvars) && (end - pos) == rev.size())
 						{
 							atoms.replace(pos, end - pos, rev);
 							pos += rev.size();
@@ -8427,7 +8264,7 @@ private:
 		return true;
 	}
 
-	state_size_type find_atom_boundary(const state_array &NFAs, state_size_type cur, const state_size_type end) const
+	state_size_type find_atom_boundary(const state_array &NFAs, state_size_type cur, const state_size_type end, const bool separate) const
 	{
 		const state_size_type begin = cur;
 		state_size_type charatomseq_endpos = cur;
@@ -8443,7 +8280,7 @@ private:
 			case st_character_class:
 				if (charatomseq_begin == NULL)
 					charatomseq_begin = &cst;
-				else if (!charatomseq_begin->is_same_character_or_charclass(cst))
+				else if (separate || !charatomseq_begin->is_same_character_or_charclass(cst))
 					return charatomseq_endpos;
 
 				charatomseq_endpos = ++cur;
@@ -8480,7 +8317,7 @@ private:
 
 						if (charatomseq_begin == NULL)
 							charatomseq_begin = &repatom;
-						else if (!charatomseq_begin->is_same_character_or_charclass(repatom))
+						else if (separate || !charatomseq_begin->is_same_character_or_charclass(repatom))
 							return charatomseq_endpos;
 
 						return cur + cst.farnext();
@@ -8494,7 +8331,7 @@ private:
 
 					state_size_type altend = cur + cst.next2 - 1;
 
-					for (; this->NFA_states[altend].type == st_epsilon && this->NFA_states[altend].char_num == epsilon_type::et_brnchend; altend += this->NFA_states[altend].next1);
+					for (; NFAs[altend].type == st_epsilon && NFAs[altend].char_num == epsilon_type::et_brnchend; altend += NFAs[altend].next1);
 
 					return altend;
 				}
@@ -8515,7 +8352,7 @@ private:
 
 					if (charatomseq_begin)
 					{
-						if (!charatomseq_begin->is_same_character_or_charclass(repatom))
+						if (separate || !charatomseq_begin->is_same_character_or_charclass(repatom))
 							return charatomseq_endpos;
 					}
 					else if (repatom.is_character_or_class())
@@ -8578,20 +8415,23 @@ private:
 		return begin != charatomseq_endpos ? charatomseq_endpos : 0u;
 	}
 
-	bool find_better_ep(state_size_type cur)
+	bool find_better_es(state_size_type cur, const cvars_type &cvars)
 	{
+		const state_array &NFAs = this->NFA_states;
 		state_size_type betterpos = 0u;
-		ui_l32 bp_cpnum = 0u;
+		ui_l32 bp_cunum = constants::infinity;
 		ui_l32 charcount = 0u;
+		int needs_rerun = 0;
+		int next_nr = 0;
 		range_pairs nextcc;
 
-		for (; cur < this->NFA_states.size();)
+		for (; cur < NFAs.size();)
 		{
-			const state_type &state = this->NFA_states[cur];
+			const state_type &state = NFAs[cur];
 
 			if (state.type == st_epsilon)
 			{
-				if (state.char_num == epsilon_type::et_ncgopen || (state.next2 == 0 && state.char_num != epsilon_type::et_jmpinlp))
+				if (state.next2 == 0 && state.char_num != epsilon_type::et_jmpinlp)
 				{
 					++cur;
 					continue;
@@ -8600,6 +8440,7 @@ private:
 			else if (state.type == st_roundbracket_open)
 			{
 				cur += state.next1;
+				next_nr = 1;
 				continue;
 			}
 			else if (state.type == st_bol || state.type == st_eol || state.type == st_boundary)
@@ -8615,7 +8456,7 @@ private:
 			else if (state.type == st_backreference || state.type == st_lookaround_open)
 				break;
 
-			const state_size_type boundary = find_atom_boundary(this->NFA_states, cur, this->NFA_states.size());
+			const state_size_type boundary = find_atom_boundary(NFAs, cur, NFAs.size(), true);
 
 			if (boundary == 0u || cur == boundary)
 				break;
@@ -8626,32 +8467,30 @@ private:
 			if (canbe0length)
 				break;
 
-			const ui_l32 cpnum = nextcc.total_codepoints();
+			const ui_l32 cunum = nextcc.num_codeunits<utf_traits>();
 			const bool has_obstacle = has_obstacle_to_reverse(cur, boundary, true);
 
-			if (betterpos != 0u)
-			{
-				if (bp_cpnum > cpnum || (bp_cpnum == cpnum && charcount == 1u))
-				{
-					betterpos = cur;
-					bp_cpnum = cpnum;
-					++charcount;
-				}
-			}
-			else
+			if (bp_cunum >= cunum)
 			{
 				betterpos = cur;
-				bp_cpnum = cpnum;
+				bp_cunum = cunum;
 				++charcount;
+				needs_rerun |= next_nr;
 			}
 
 			if (has_obstacle)
 				break;
 
+			const state_size_type atomlen = boundary - cur;
+
+			if ((atomlen != 1 || !state.is_character_or_class())
+				&& (atomlen != 6 || NFAs[cur + 2].type != st_check_counter || !NFAs[cur + 2].quantifier.is_same() || !NFAs[cur + 5].is_character_or_class()))
+				next_nr = 1;
+
 			cur = boundary;
 		}
 
-		return (charcount > 1u) ? (create_rewinder(betterpos, true), true) : false;
+		return (charcount > 1u) ? (create_rewinder(betterpos, needs_rerun, cvars), true) : false;
 	}
 
 #endif	//  !defined(SRELL_FIXEDWIDTHLOOKBEHIND) && !defined(SRELLDBG_NO_MPREWINDER)
@@ -9688,10 +9527,14 @@ public:	//  For internal.
 		return false;
 	}
 
+#if !defined(SRELL_NO_NAMEDCAPTURE)
+
 	typename gnamemap_type::gname_string lookup_gname_(const re_detail::ui_l32 gno) const
 	{
 		return gnames_[gno];
 	}
+
+#endif
 
 private:
 
@@ -9705,17 +9548,20 @@ private:
 			key[i] = *begin;
 
 		const re_detail::ui_l32 *list = gnames_[key];
+		re_detail::ui_l32 gno = gnamemap_type::notfound;
+
 		if (list)
 		{
 			const re_detail::ui_l32 num = list[0];
+
 			for (re_detail::ui_l32 i = 1; i <= num; ++i)
 			{
-				const re_detail::ui_l32 gno = list[i];
+				gno = list[i];
 				if (gno < static_cast<re_detail::ui_l32>(sub_matches_.size()) && sub_matches_[gno].matched)
-					return gno;
+					break;
 			}
 		}
-		return gnamemap_type::notfound;
+		return gno;
 	}
 
 #endif	//  !defined(SRELL_NO_NAMEDCAPTURE)

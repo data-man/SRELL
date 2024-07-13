@@ -1,3 +1,26 @@
+20240707; version 4.047:
+  * Performance improvement in searching with srell::regex (only when
+    CHAR_BIT is 8), srell::u8cregex, or srell::u8regex.
+
+20240613; version 4.046:
+  * Code size reduction. SRELL no longer gives priority to finding a
+    literal sequence.
+  * Various minor improvements and fixes.
+
+20240608; version 4.045:
+  * Implemented the regex modifiers feature. But until the proposal is
+    merged into the draft specification of ECMAScript, this feature is
+    disabled and available only when SRELL_ENABLE_MODIFIERS is defined.
+  * Added a missing check to see whether a backreference number exceeds
+    the max number of capturing groups or not, which should have been
+    added with the modification for the duplicate named capturing groups
+    support in version 4.043.
+
+20240602; version 4.044:
+  * Added several missing #if ~ #endif directives for
+    SRELL_NO_NAMEDCAPTURE.
+  * Retired an older state insertion function in favour of a newer one.
+
 20240526; version 4.043:
   * Implemented the duplicate named capturing groups feature.
 
@@ -6,7 +29,7 @@
     C{n,} where C is a character or character class and n >= 2.
   * Introduced the unified stack, which is used when either of the
     following conditions is met:
-    1) The passed iterator is a pointer, or
+    1) The iterator passed to an algorithm function is a pointer, or
     2) std::is_trivially_copyable is supported by the compiler and for
        the type I of the passed iterator,
        std::is_trivially_copyable<I>::value is true.
@@ -161,8 +184,8 @@
 20230804; version 4.023:
   * Unified two internal integer types to one type.
   * Simplified several optimisations that had become less effective
-    because of the entry point selector introduced in 4.019.
-  * Improved the entry point selector.
+    because of the entry state selector introduced in 4.019.
+  * Improved the entry state selector.
   * Corrected misnamed variable names.
 
 20230730; version 4.022:
@@ -187,7 +210,7 @@
   from anywhere.
 
 20230114; version 4.019:
-  * Implemented a new entry point selector.
+  * Implemented a new entry state selector.
 
 20230109; version 4.018:
   * Cancelled the mergence of automata that was done in version 4.016,
@@ -366,7 +389,7 @@
 
 20220416; version 3.002:
   * Fixed a bug that caused regex_match or regex_search with the
-    match_continuous flag being set to fail when the entry point
+    match_continuous flag being set to fail when the entry state
     selector introduced in version 3.000 was used internally.
 
 20211025; version 3.001:
@@ -394,7 +417,7 @@
     in cases like this.
   * Fixed a bug that caused /[^;]*^;?/ not to match the beginning of an
     input string when the multiline flag is not set.
-  * Implemented a very simple and limited entry point selector.
+  * Implemented a very simple and limited entry state selector.
 
 20211004; version 2.930:
   * Added new typedefs whose prefix is u1632w- and support UTF-16 or
