@@ -1,5 +1,20 @@
+20240720; version 4.049:
+  * Added the new flag, "sticky" to syntax_option_type.
+  * Added split_aptrange() to regex_iterator2.
+  * Removed the feature of generating a data file in an older format
+    from ucfdataout2.cpp and updataout3.cpp.
+
+20240714; version 4.048:
+  * Removed two types of internal iterators, which read a codepoint
+    value at the current position or the previous position with keeping
+    its pointing position.
+  * Modified internal UTF-8 iterators not to accept non-shortest forms
+    (This change might have a negative impact on performance, but the
+    improvement in the previous version probably overweighs it. So, I
+    decided to change at this point).
+
 20240707; version 4.047:
-  * Performance improvement in searching with srell::regex (only when
+  * Performance improvement in searching with srell::regex (only if
     CHAR_BIT is 8), srell::u8cregex, or srell::u8regex.
 
 20240613; version 4.046:
@@ -19,7 +34,8 @@
 20240602; version 4.044:
   * Added several missing #if ~ #endif directives for
     SRELL_NO_NAMEDCAPTURE.
-  * Retired an older state insertion function in favour of a newer one.
+  * Retired the older state insertion function in favour of the newer
+    one.
 
 20240526; version 4.043:
   * Implemented the duplicate named capturing groups feature.
@@ -29,7 +45,7 @@
     C{n,} where C is a character or character class and n >= 2.
   * Introduced the unified stack, which is used when either of the
     following conditions is met:
-    1) The iterator passed to an algorithm function is a pointer, or
+    1) The iterator passed to the matching function is a pointer, or
     2) std::is_trivially_copyable is supported by the compiler and for
        the type I of the passed iterator,
        std::is_trivially_copyable<I>::value is true.
@@ -89,7 +105,7 @@
 
 20231209; version 4.034:
   * Modified to use std::contiguous_iterator when it is available, to
-    check if the iterator passed to an algorithm function is a
+    check if the iterator passed to the matching function is a
     contigous_iterator.
   * Modified match_results::operator[]() not to throw error_backref when
     a group name not existing in the regular expression is passed to as
@@ -220,7 +236,7 @@
 
 20230107; version 4.017:
   * Fixed a bug that caused compilation to fail since version 4.006 when
-    bidirectional iterators were passed to an algorithm function.
+    bidirectional iterators were passed to the matching function.
 
 20230106; version 4.016/3.018 (@ only):
   * Merged four automata into two (preparation for i-modifier support).
@@ -268,9 +284,9 @@
 20221210; version 4.009/3.016 (@ only):
   @ Fixed a problem so that regex_iterator.prefix().matched can be set
     to true in incrementing after it matched an empty sequence.
-  @ Fixed the core of algorithm functions not to cause compilation error
-    when an object of match_results instantiated with a custom allocator
-    is provided.
+  @ Fixed the core of the matching functions not to cause a compilation
+    error when an object of match_results instantiated with a custom
+    allocator is provided.
   * Added new member functions to basic_regex as API extensions.
 
 20221130; version 4.008:

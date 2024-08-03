@@ -1,5 +1,5 @@
 //
-//  ucfdataout.cpp: version 2.103 (2023/09/09).
+//  ucfdataout.cpp: version 2.104 (2024/07/20).
 //
 //  This is a program that generates srell_ucfdata2.h from CaseFolding.txt
 //  provided by the Unicode Consortium. The latese version is available at:
@@ -118,7 +118,6 @@ struct ucf_options
 		, version(201)
 		, errorno(0)
 	{
-		bool outfile_specified = false;
 
 		for (int index = 1; index < argc; ++index)
 		{
@@ -140,18 +139,6 @@ struct ucf_options
 					if (index >= argc)
 						goto NO_ARGUMENT;
 					outfilename = argv[index];
-					outfile_specified = true;
-				}
-				else if (std::strcmp(option, "v") == 0)
-				{
-					if (index >= argc)
-						goto NO_ARGUMENT;
-					version = static_cast<int>(std::strtod(argv[index], NULL) * 100 + 0.5);
-					if (!outfile_specified && version < 200)
-					{
-						static const char *const v1name = "srell_ucfdata.hpp";
-						outfilename = v1name;
-					}
 				}
 				else if (std::strcmp(option, "id") == 0)
 				{
@@ -165,7 +152,6 @@ struct ucf_options
 					std::fputs("  -i <FILE>\t\tRead data from <FILE>.\n", stdout);
 					std::fputs("  -id <DIRECTORY>\tAssume that input file exist in <DIRECTORY>.\n\t\t\t<DIRECTORY> must ends with '/' or '\\'.\n", stdout);
 					std::fputs("  -o <FILE>\t\tOutput to <FILE>.\n", stdout);
-//					std::fputs("  -v <VERNO>\t\tOutput in the version VERNO format.\n", stdout);
 					errorno = 1;
 					return;
 				}
@@ -235,10 +221,7 @@ public:
 				}
 			}
 
-			if (opts.version <= 100)
-				outdata += "template <typename T1, typename T2, typename T3>\nstruct unicode_casefolding\n{\n\tstatic const T1 *table()\n\t{\n\t\tstatic const T1 ucftable[] =\n\t\t{\n";
-			else
-				outdata += "template <typename T2, typename T3>\nstruct unicode_casefolding\n{\n";
+			outdata += "template <typename T1, typename T2>\nstruct unicode_casefolding\n{\n";
 
 			for (; !iter.done(); ++iter)
 			{
@@ -250,56 +233,26 @@ public:
 					const std::string name(match[4].str());
 
 					update(from, to);
-
-					if (opts.version == 100)
-						outdata += indent + "{ 0x" + from + ", 0x" + to + " },\t//  " + type + "; " + name + "\n";
-					else if (opts.version <= 0)
-					{
-						if (colcount == 0)
-							outdata += indent;
-
-						outdata += "{ 0x" + from + ", 0x" + to + " },";
-						if (++colcount == 4)
-						{
-							outdata.append(1, '\n');
-							colcount = 0;
-						}
-					}
-				}
-				else if (opts.version == 100)
-				{
-					if (!srell::regex_match((*iter)[0].first, (*iter)[0].second, re_comment_or_emptyline))
-						outdata += indent + "//  " + iter->str(0) + "\n";
 				}
 			}
 
 			if (colcount > 0)
 				outdata.append(1, '\n');
-			if (opts.version <= 100)
-				outdata += indent + "{ 0, 0 }\n\t\t};\n\t\treturn ucftable;\n\t}\n";
 
-			outdata += "\tstatic const T2 ucf_maxcodepoint = 0x" + unishared::to_string(ucf_maxcodepoint_, 16, 4) + ";\n";
-			outdata += "\tstatic const T3 ucf_deltatablesize = 0x" + unishared::to_string(ucf_numofsegs_ << 8, 16) + ";\n";
+			outdata += "\tstatic const T1 ucf_maxcodepoint = 0x" + unishared::to_string(ucf_maxcodepoint_, 16, 4) + ";\n";
+			outdata += "\tstatic const T2 ucf_deltatablesize = 0x" + unishared::to_string(ucf_numofsegs_ << 8, 16) + ";\n";
 
-			outdata += "\tstatic const T2 rev_maxcodepoint = 0x" + unishared::to_string(rev_maxcodepoint_, 16, 4) + ";\n";
-			outdata += "\tstatic const T3 rev_indextablesize = 0x" + unishared::to_string(rev_numofsegs_ << 8, 16) + ";\n";
-			outdata += "\tstatic const T3 rev_charsettablesize = " + unishared::to_string(numofcps_to_ * 2 + numofcps_from_ + 1) + ";\t//  1 + " + unishared::to_string(numofcps_to_) + " * 2 + " + unishared::to_string(numofcps_from_) + "\n";
-			outdata += "\tstatic const T3 rev_maxset = " + unishared::to_string(maxset()) + ";\n";
-			outdata += "\tstatic const T2 eos = 0;\n";
+			outdata += "\tstatic const T1 rev_maxcodepoint = 0x" + unishared::to_string(rev_maxcodepoint_, 16, 4) + ";\n";
+			outdata += "\tstatic const T2 rev_indextablesize = 0x" + unishared::to_string(rev_numofsegs_ << 8, 16) + ";\n";
+			outdata += "\tstatic const T2 rev_charsettablesize = " + unishared::to_string(numofcps_to_ * 2 + numofcps_from_ + 1) + ";\t//  1 + " + unishared::to_string(numofcps_to_) + " * 2 + " + unishared::to_string(numofcps_from_) + "\n";
+			outdata += "\tstatic const T2 rev_maxset = " + unishared::to_string(maxset()) + ";\n";
+			outdata += "\tstatic const T1 eos = 0;\n";
 
-			if (opts.version >= 200)
-			{
-				outdata += "\n\tstatic const T2 ucf_deltatable[];\n\tstatic const T3 ucf_segmenttable[];\n\tstatic const T3 rev_indextable[];\n\tstatic const T3 rev_segmenttable[];\n\tstatic const T2 rev_charsettable[];\n";
+			outdata += "\n\tstatic const T1 ucf_deltatable[];\n\tstatic const T2 ucf_segmenttable[];\n\tstatic const T2 rev_indextable[];\n\tstatic const T2 rev_segmenttable[];\n\tstatic const T1 rev_charsettable[];\n";
 
-				if (opts.version <= 200)
-					outdata += "\n\tstatic const T2 *ucf_deltatable_ptr()\n\t{\n\t\treturn ucf_deltatable;\n\t}\n\tstatic const T3 *ucf_segmenttable_ptr()\n\t{\n\t\treturn ucf_segmenttable;\n\t}\n\tstatic const T3 *rev_indextable_ptr()\n\t{\n\t\treturn rev_indextable;\n\t}\n\tstatic const T3 *rev_segmenttable_ptr()\n\t{\n\t\treturn rev_segmenttable;\n\t}\n\tstatic const T2 *rev_charsettable_ptr()\n\t{\n\t\treturn rev_charsettable;\n\t}\n";
-
-				outdata += "};\ntemplate <typename T2, typename T3>\n\tconst T2 unicode_casefolding<T2, T3>::ucf_maxcodepoint;\ntemplate <typename T2, typename T3>\n\tconst T3 unicode_casefolding<T2, T3>::ucf_deltatablesize;\ntemplate <typename T2, typename T3>\n\tconst T2 unicode_casefolding<T2, T3>::rev_maxcodepoint;\ntemplate <typename T2, typename T3>\n\tconst T3 unicode_casefolding<T2, T3>::rev_indextablesize;\ntemplate <typename T2, typename T3>\n\tconst T3 unicode_casefolding<T2, T3>::rev_charsettablesize;\ntemplate <typename T2, typename T3>\n\tconst T3 unicode_casefolding<T2, T3>::rev_maxset;\ntemplate <typename T2, typename T3>\n\tconst T2 unicode_casefolding<T2, T3>::eos;\n\n";
-				out_v2tables(outdata);
-				outdata += "#define SRELL_UCFDATA_VERSION " + unishared::to_string(static_cast<unsigned int>(opts.version)) + "\n";
-			}
-			else
-				outdata += "};\n#define SRELL_UCFDATA_VER 201909L\n";
+			outdata += "};\ntemplate <typename T1, typename T2>\n\tconst T1 unicode_casefolding<T1, T2>::ucf_maxcodepoint;\ntemplate <typename T1, typename T2>\n\tconst T2 unicode_casefolding<T1, T2>::ucf_deltatablesize;\ntemplate <typename T1, typename T2>\n\tconst T1 unicode_casefolding<T1, T2>::rev_maxcodepoint;\ntemplate <typename T1, typename T2>\n\tconst T2 unicode_casefolding<T1, T2>::rev_indextablesize;\ntemplate <typename T1, typename T2>\n\tconst T2 unicode_casefolding<T1, T2>::rev_charsettablesize;\ntemplate <typename T1, typename T2>\n\tconst T2 unicode_casefolding<T1, T2>::rev_maxset;\ntemplate <typename T1, typename T2>\n\tconst T1 unicode_casefolding<T1, T2>::eos;\n\n";
+			out_v2tables(outdata);
+			outdata += "#define SRELL_UCFDATA_VERSION " + unishared::to_string(static_cast<unsigned int>(opts.version)) + "\n";
 
 			std::fprintf(stdout, "MaxDelta: %+ld (U+%.4lX->U+%.4lX)\n", maxdelta_, maxdelta_cp_, maxdelta_cp_ + maxdelta_);
 		}
@@ -377,21 +330,21 @@ private:
 	void out_v2tables(std::string &outdata)
 	{
 		const char *const headers[] = {
-			"template <typename T2, typename T3>\nconst ",
-			" unicode_casefolding<T2, T3>::",
+			"template <typename T1, typename T2>\nconst ",
+			" unicode_casefolding<T1, T2>::",
 			"[] =\n{\n"
 		};
 
 		create_revtables();
-		out_lowertable(outdata, headers, "T2", "ucf_deltatable", ucf_deltas_, ucf_segments_);
+		out_lowertable(outdata, headers, "T1", "ucf_deltatable", ucf_deltas_, ucf_segments_);
 		outdata.append(1, '\n');
-		out_uppertable(outdata, headers, "T3", "ucf_segmenttable", ucf_segments_);
+		out_uppertable(outdata, headers, "T2", "ucf_segmenttable", ucf_segments_);
 		outdata.append(1, '\n');
-		out_lowertable(outdata, headers, "T3", "rev_indextable", rev_indices_, rev_segments_);
+		out_lowertable(outdata, headers, "T2", "rev_indextable", rev_indices_, rev_segments_);
 		outdata.append(1, '\n');
-		out_uppertable(outdata, headers, "T3", "rev_segmenttable", rev_segments_);
+		out_uppertable(outdata, headers, "T2", "rev_segmenttable", rev_segments_);
 		outdata.append(1, '\n');
-		out_cstable(outdata, headers, "T2", "rev_charsettable", rev_charsets_);
+		out_cstable(outdata, headers, "T1", "rev_charsettable", rev_charsets_);
 	}
 
 	//  Updates ucf_segments_, ucf_deltas_, and rev_charsets_.

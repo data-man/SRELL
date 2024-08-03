@@ -1,3 +1,16 @@
+20240720; version 4.049:
+  ・syntax_option_typeにstickyフラグを追加。
+  ・regex_iterator2にsplit_aptrange()を追加。
+  ・ucfdataout2.cpp, updataout3.cppから、データファイルを古い形式で出力
+    する機能を削除。
+
+20240714; version 4.048:
+  ・指している位置を維持したまま現在位置または直前のコードポイント値を読
+    み込むイテレータを廃止。
+  ・UTF-8用内部iteratorが最短の表現以外を受け付けぬよう変更（この変更は
+    若干の速度低下をもたらすかもしれませんが、前版の改良効果のほうがそれ
+    を上回ると見てこのタイミングで入れることにしました）。
+
 20240707; version 4.047:
   ・srell::regex（CHAR_BITが8の時のみ）, srell::u8cregex, srell::u8regex
     による検索の速度を改良。
@@ -25,7 +38,7 @@
   ・*, +用の最適化処理が、C{n,}（Cは文字かクラス、nは2以上）にも適用され
     うるように拡張。
   ・次の条件を満たす場合に用いられる統合スタックを導入。
-    1) アルゴリズム函数に渡されたiteratorがポインタであること、または、
+    1) 照合用函数に渡されたiteratorがポインタであること、または、
     2) コンパイラがstd::is_trivially_copyableに対応していて、かつ
        渡されたiteratorの型Iに対する
        std::is_trivially_copyable<I>::valueがtrueであること。
@@ -81,7 +94,7 @@
     ルできなくなっていました。
 
 20231209; version 4.034:
-  ・アルゴリズム函数に渡されたiteratorがcontiguous_iteratorかどうかを調
+  ・照合用函数に渡されたiteratorがcontiguous_iteratorかどうかを調
     べる時、std::contiguous_iteratorが使えるならそれを使うように。
   ・正規表現中に存在しないグループ名が、match_results型のoperator[]()メ
     ンバ函数に引数として渡された場合、error_backrefをthrowするのをやめ、
