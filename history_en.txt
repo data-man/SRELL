@@ -1,3 +1,19 @@
+20240911; version 4.056:
+  * Updated ucfdata2.h and updata3.h to support Unicode 16.0.0.
+  * Other minor modifications.
+
+20240904; version 4.055:
+  * Adjusted the prefilter for UTF-8/UTF-16 so that search against a
+    string containing not a few characters encoded in multiple code
+    units (0080..10FFFF in UTF-8, 10000..10FFFF in UTF-16) would not be
+    slowed down to excess.
+  * Lowered the default value of limit_counter from 1 << 24 to 1 << 21.
+  * Removed all member functions from regex_traits as unused.
+
+20240831; version 4.054:
+  * Code size reduction. Unified parsers that had been separate for
+    u-mode and v-mode.
+
 20240824; version 4.053:
   * Simplified the creation of the predefined character classes.
   * Improved internal UTF-8 iterators. Reduced the number of conditional
