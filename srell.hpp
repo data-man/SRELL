@@ -1,6 +1,6 @@
 /*****************************************************************************
 **
-**  SRELL (std::regex-like library) version 4.056
+**  SRELL (std::regex-like library) version 4.057
 **
 **  Copyright (c) 2012-2024, Nozomu Katoo. All rights reserved.
 **
@@ -63,36 +63,10 @@
 #define SRELL_NO_VCWARNING_END
 #endif
 
-#ifdef __cpp_unicode_characters
-	#ifndef SRELL_CPP11_CHAR1632_ENABLED
-	#define SRELL_CPP11_CHAR1632_ENABLED
-	#endif
-#endif
-#ifdef __cpp_initializer_lists
-	#ifndef SRELL_CPP11_INITIALIZER_LIST_ENABLED
-	#define SRELL_CPP11_INITIALIZER_LIST_ENABLED
-	#endif
-#endif
-#ifdef __cpp_rvalue_references
-	#ifndef SRELL_CPP11_MOVE_ENABLED
-	#define SRELL_CPP11_MOVE_ENABLED
-	#endif
-#endif
-#ifdef SRELL_CPP11_MOVE_ENABLED
-	#if defined(_MSC_VER) && _MSC_VER < 1900
-	#define SRELL_NOEXCEPT
-	#else
-	#define SRELL_NOEXCEPT noexcept
-	#endif
-#endif
-#ifdef __cpp_char8_t
-	#ifndef SRELL_CPP20_CHAR8_ENABLED
-		#ifdef __cpp_lib_char8_t
-		#define SRELL_CPP20_CHAR8_ENABLED 2
-		#else
-		#define SRELL_CPP20_CHAR8_ENABLED 1
-		#endif
-	#endif
+#if defined(__cpp_rvalue_references) && (!defined(_MSC_VER) || (_MSC_VER >= 1900))
+#define SRELL_NOEXCEPT noexcept
+#else
+#define SRELL_NOEXCEPT
 #endif
 
 //  The following SRELL_NO_* macros would be useful for reducing the
@@ -330,7 +304,7 @@ private:
 	namespace re_detail
 	{
 
-#if defined(SRELL_CPP11_CHAR1632_ENABLED)
+#if defined(__cpp_unicode_characters)
 
 		typedef char32_t ui_l32;	//  uint_least32.
 
@@ -344,7 +318,7 @@ private:
 
 #else
 #error could not find a suitable type for 32-bit Unicode integer values.
-#endif	//  defined(SRELL_CPP11_CHAR1632_ENABLED)
+#endif	//  defined(__cpp_unicode_characters)
 	}	//  namespace re_detail
 
 //  ... "rei_type.h"]
@@ -911,14 +885,14 @@ struct utf_traits<signed char> : public utf_traits<char>
 
 //  (signed) short, (signed) int, (signed) long, (signed) long long, ...
 
-#if defined(SRELL_CPP11_CHAR1632_ENABLED)
+#if defined(__cpp_unicode_characters)
 template <>
 struct utf_traits<char16_t> : public utf16_traits<char16_t>
 {
 };
 #endif
 
-#if defined(SRELL_CPP20_CHAR8_ENABLED)
+#if defined(__cpp_char8_t)
 template <>
 struct utf_traits<char8_t> : public utf8_traits<char8_t>
 {
@@ -1044,7 +1018,7 @@ public:
 		operator=(right);
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	simple_array(simple_array &&right) SRELL_NOEXCEPT
 		: buffer_(right.buffer_)
 		, size_(right.size_)
@@ -1067,7 +1041,7 @@ public:
 		return *this;
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	simple_array &operator=(simple_array &&right) SRELL_NOEXCEPT
 	{
 		if (this != &right)
@@ -1473,7 +1447,7 @@ public:
 		throw std::bad_alloc();
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	bitset(bitset &&right) SRELL_NOEXCEPT
 		: buffer_(right.buffer_)
 	{
@@ -1490,7 +1464,7 @@ public:
 		return *this;
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	bitset &operator=(bitset &&right) SRELL_NOEXCEPT
 	{
 		if (this != &right)
@@ -1659,7 +1633,7 @@ public:
 		return *this;
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	unicode_case_folding &operator=(unicode_case_folding &&) SRELL_NOEXCEPT
 	{
 		return *this;
@@ -1740,7 +1714,7 @@ public:
 		return *this;
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	unicode_property &operator=(unicode_property &&) SRELL_NOEXCEPT
 	{
 		return *this;
@@ -1947,7 +1921,7 @@ public:
 	{
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	range_pairs(range_pairs &&rp) SRELL_NOEXCEPT
 		: rparray_(std::move(rp.rparray_))
 	{
@@ -2592,7 +2566,7 @@ public:
 		return *this;
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	re_character_class &operator=(re_character_class &&that) SRELL_NOEXCEPT
 	{
 		if (this != &that)
@@ -2877,7 +2851,7 @@ public:
 	{
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	groupname_mapper(groupname_mapper &&right) SRELL_NOEXCEPT
 		: names_(std::move(right.names_)), keysize_classno_(std::move(right.keysize_classno_))
 	{
@@ -2894,7 +2868,7 @@ public:
 		return *this;
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	groupname_mapper &operator=(groupname_mapper &&right) SRELL_NOEXCEPT
 	{
 		if (this != &right)
@@ -3758,7 +3732,7 @@ public:
 		operator=(right);
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	re_bmh(re_bmh &&right) SRELL_NOEXCEPT
 	{
 		operator=(std::move(right));
@@ -3777,7 +3751,7 @@ public:
 		return *this;
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	re_bmh &operator=(re_bmh &&that) SRELL_NOEXCEPT
 	{
 		if (this != &that)
@@ -4466,7 +4440,7 @@ protected:
 		operator=(right);
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	re_object_core(re_object_core &&right) SRELL_NOEXCEPT
 #if !defined(SRELLDBG_NO_BMH)
 		: bmdata(NULL)
@@ -4566,7 +4540,7 @@ protected:
 		return *this;
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	re_object_core &operator=(re_object_core &&that) SRELL_NOEXCEPT
 	{
 		if (this != &that)
@@ -4604,7 +4578,7 @@ protected:
 		}
 		return *this;
 	}
-#endif	//  defined(SRELL_CPP11_MOVE_ENABLED)
+#endif	//  defined(__cpp_rvalue_references)
 
 	void swap(re_object_core &right)
 	{
@@ -6119,6 +6093,9 @@ private:
 				pvalue.push_backncr(0);
 
 				eastate.char_num = this->character_class.get_propertynumber(pname, pvalue);
+
+				if (eastate.char_num == up_constants::error_property)
+					return this->set_error(regex_constants::error_property);
 
 				if (!this->character_class.is_pos(eastate.char_num))
 				{
@@ -8538,21 +8515,21 @@ typedef ssub_match u8cssub_match;
 	#endif
 #endif
 
-#if defined(SRELL_CPP11_CHAR1632_ENABLED)
+#if defined(__cpp_unicode_characters)
 	typedef sub_match<const char16_t *> u16csub_match;
 	typedef sub_match<const char32_t *> u32csub_match;
 	typedef sub_match<std::u16string::const_iterator> u16ssub_match;
 	typedef sub_match<std::u32string::const_iterator> u32ssub_match;
 #endif
 
-#if defined(SRELL_CPP20_CHAR8_ENABLED)
+#if defined(__cpp_char8_t)
 	typedef sub_match<const char8_t *> u8csub_match;
 #else
 	typedef u8ccsub_match u8csub_match;
 #endif
-#if defined(SRELL_CPP20_CHAR8_ENABLED) && SRELL_CPP20_CHAR8_ENABLED >= 2
+#if defined(__cpp_char8_t) && defined(__cpp_lib_char8_t)
 	typedef sub_match<std::u8string::const_iterator> u8ssub_match;
-#else	//  !defined(SRELL_CPP20_CHAR8_ENABLED) || SRELL_CPP20_CHAR8_ENABLED < 2
+#else
 	typedef u8cssub_match u8ssub_match;
 #endif
 
@@ -8606,7 +8583,7 @@ public:
 		operator=(m);
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	match_results(match_results &&m) SRELL_NOEXCEPT
 	{
 		operator=(std::move(m));
@@ -8630,7 +8607,7 @@ public:
 		return *this;
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	match_results &operator=(match_results &&m) SRELL_NOEXCEPT
 	{
 		if (this != &m)
@@ -9199,21 +9176,21 @@ typedef smatch u8csmatch;
 	#endif
 #endif
 
-#if defined(SRELL_CPP11_CHAR1632_ENABLED)
+#if defined(__cpp_unicode_characters)
 	typedef match_results<const char16_t *> u16cmatch;
 	typedef match_results<const char32_t *> u32cmatch;
 	typedef match_results<std::u16string::const_iterator> u16smatch;
 	typedef match_results<std::u32string::const_iterator> u32smatch;
 #endif
 
-#if defined(SRELL_CPP20_CHAR8_ENABLED)
+#if defined(__cpp_char8_t)
 	typedef match_results<const char8_t *> u8cmatch;
 #else
 	typedef u8ccmatch u8cmatch;
 #endif
-#if defined(SRELL_CPP20_CHAR8_ENABLED) && SRELL_CPP20_CHAR8_ENABLED >= 2
+#if defined(__cpp_char8_t) && defined(__cpp_lib_char8_t)
 	typedef match_results<std::u8string::const_iterator> u8smatch;
-#else	//  !defined(SRELL_CPP20_CHAR8_ENABLED) || SRELL_CPP20_CHAR8_ENABLED < 2
+#else
 	typedef u8csmatch u8smatch;
 #endif
 
@@ -9222,54 +9199,6 @@ typedef smatch u8csmatch;
 
 	namespace re_detail
 	{
-
-#if !defined(SRELL_NO_APIEXT)
-
-template <typename charT>
-struct repoptions
-{
-	const charT *fmt_begin;
-	const charT *fmt_end;
-	bool global;
-
-	repoptions(const charT *const b, const charT *const e, const bool g)
-		: fmt_begin(b), fmt_end(e), global(g)
-	{
-	}
-};
-
-template <typename charT, typename ST, typename SA, typename BidiIter>
-bool call_mrformat(std::basic_string<charT, ST, SA> &s, const match_results<BidiIter> &m, void *p)
-{
-	const repoptions<charT> *const opts = reinterpret_cast<const repoptions<charT> *>(p);
-
-	m.format(std::back_inserter(s), opts->fmt_begin, opts->fmt_end);	//, flags);
-	return opts->global;
-}
-
-template <typename charT, typename StringLike, typename iteratorTag>
-iteratorTag pos0_(const StringLike &s, iteratorTag)
-{
-	return s.begin();
-}
-template <typename charT, typename StringLike>
-const charT *pos0_(const StringLike &s, const charT *)
-{
-	return s.data();
-}
-
-template <typename charT, typename StringLike, typename iteratorTag>
-iteratorTag pos1_(const StringLike &s, iteratorTag)
-{
-	return s.end();
-}
-template <typename charT, typename StringLike>
-const charT *pos1_(const StringLike &s, const charT *)
-{
-	return s.data() + s.size();
-}
-
-#endif	//  !defined(SRELL_NO_APIEXT)
 
 template <typename charT, typename traits>
 class re_object : public re_compiler<charT, traits>
@@ -10362,139 +10291,6 @@ SRELL_NO_VCWARNING_END
 			}
 		}
 	}
-
-#if !defined(SRELL_NO_APIEXT)
-
-protected:
-
-	template <typename StringLike, typename ST, typename SA, typename RAIter, typename MA>
-	void do_replace(
-		StringLike &s,
-		bool (*repfunc)(std::basic_string<charT, ST, SA> &, const match_results<RAIter, MA> &, void *),
-		void *ptr
-	) const
-	{
-		typedef std::basic_string<charT, ST, SA> string_type;
-		typedef typename string_type::size_type size_type;
-		typedef typename traits::utf_traits utf_traits;
-		typedef match_results<RAIter, MA> match_type;
-		regex_constants::match_flag_type flags = regex_constants::match_default;
-		string_type subst;
-		match_type match;
-		size_type offset = 0;
-		size_type prevend = offset;
-
-		for (;;)
-		{
-			if (!this->search(pos0_<charT>(s, RAIter()) + offset, pos1_<charT>(s, RAIter()), pos0_<charT>(s, RAIter()), match, flags))
-				break;
-
-			const typename match_type::size_type matchlen = match.length(0);
-
-			match.update_prefix1_(pos0_<charT>(s, RAIter()) + prevend);
-			offset = match[0].second - pos0_<charT>(s, RAIter());
-
-			const bool continuable = repfunc(subst, match, ptr);
-
-			s.replace(match[0].first - pos0_<charT>(s, RAIter()), matchlen, subst);
-			if (!continuable)
-				break;
-
-			offset += subst.size() - matchlen;
-			prevend = offset;
-
-			if (matchlen == 0)
-			{
-				if (offset == s.size())
-				{
-					break;
-				}
-				else
-				{
-					RAIter it = pos0_<charT>(s, RAIter()) + offset;
-
-					utf_traits::codepoint_inc(it, pos1_<charT>(s, RAIter()));
-					offset = it - pos0_<charT>(s, RAIter());
-				}
-			}
-			subst.clear();
-			flags |= regex_constants::match_prev_avail;
-		}
-	}
-
-	template <typename BidiIter>
-	struct submatch_helper : public sub_match<BidiIter>
-	{
-		submatch_helper(const BidiIter f, const BidiIter s, const bool m = true)
-		{
-			this->first = f;
-			this->second = s;
-			this->matched = m;
-		}
-	};
-
-	template <typename MatchResults, typename container, typename BidiIter>
-	void do_split(
-		container &c,
-		const BidiIter begin,
-		const BidiIter end,
-		const std::size_t limit /* = -1 */
-	) const
-	{
-		typedef typename traits::utf_traits utf_traits;
-		typedef MatchResults match_type;
-		typedef submatch_helper<BidiIter> helper;
-		regex_constants::match_flag_type flags = regex_constants::match_default;
-		BidiIter offset = begin;
-		BidiIter prevend = offset;
-		std::size_t count = 0;
-		match_type match;
-
-		if (limit == 0)	//  22.2.5.14 RegExp.prototype [ @@split ] ( string, limit ), step 14:
-			return;
-
-		if (offset == end)	//  22.2.5.14 RegExp.prototype [ @@split ] ( string, limit ), step 16:
-		{
-			if (!this->search(offset, end, begin, match, flags))
-				c.push_back(helper(begin, end));
-
-			return;
-		}
-
-		for (; offset < end;)
-		{
-			if (!this->search(offset, end, begin, match, flags) || match[0].first == end)
-				break;
-
-			if (match[0].second != prevend)
-			{
-				if (++count == limit)
-					break;
-				c.push_back(helper(prevend, match[0].first));
-
-				prevend = match[0].second;
-
-				for (typename match_type::size_type i = 1; i < match.size(); ++i)
-				{
-					if (++count == limit)
-						goto FINAL_PUSH;
-					c.push_back(match[i]);
-				}
-
-				offset = prevend;
-			}
-			else
-			{
-				utf_traits::codepoint_inc(offset, end);
-			}
-			flags |= regex_constants::match_prev_avail;
-		}
-
-		FINAL_PUSH:
-		c.push_back(helper(prevend, end));
-	}
-
-#endif	//  !defined(SRELL_NO_APIEXT)
 };
 //  re_object
 
@@ -10555,7 +10351,7 @@ public:
 		assign(e);
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	basic_regex(basic_regex &&e) SRELL_NOEXCEPT
 	{
 		assign(std::move(e));
@@ -10574,7 +10370,7 @@ public:
 		assign(first, last, f);
 	}
 
-#if defined(SRELL_CPP11_INITIALIZER_LIST_ENABLED)
+#if defined(__cpp_initializer_lists)
 	basic_regex(std::initializer_list<charT> il, const flag_type f = regex_constants::ECMAScript)
 	{
 		assign(il, f);
@@ -10588,7 +10384,7 @@ public:
 		return assign(right);
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	basic_regex &operator=(basic_regex &&e) SRELL_NOEXCEPT
 	{
 		return assign(std::move(e));
@@ -10600,7 +10396,7 @@ public:
 		return assign(ptr);
 	}
 
-#if defined(SRELL_CPP11_INITIALIZER_LIST_ENABLED)
+#if defined(__cpp_initializer_lists)
 	basic_regex &operator=(std::initializer_list<charT> il)
 	{
 		return assign(il.begin(), il.end());
@@ -10621,7 +10417,7 @@ public:
 		return *this;
 	}
 
-#if defined(SRELL_CPP11_MOVE_ENABLED)
+#if defined(__cpp_rvalue_references)
 	basic_regex &assign(basic_regex &&right) SRELL_NOEXCEPT
 	{
 		re_detail::re_object_core<charT, traits>::operator=(std::move(right));
@@ -10658,7 +10454,7 @@ public:
 		return *this;
 	}
 
-#if defined(SRELL_CPP11_INITIALIZER_LIST_ENABLED)
+#if defined(__cpp_initializer_lists)
 	basic_regex &assign(std::initializer_list<charT> il, const flag_type f = regex_constants::ECMAScript)
 	{
 		return assign(il.begin(), il.end(), f);
@@ -10700,294 +10496,6 @@ public:
 	{
 		return re_detail::re_object_core<charT, traits>::ecode();
 	}
-
-#if !defined(SRELL_NO_APIEXT)
-
-	template <typename BidirectionalIterator, typename Allocator>
-	bool match(
-		const BidirectionalIterator begin,
-		const BidirectionalIterator end,
-		match_results<BidirectionalIterator, Allocator> &m,
-		const regex_constants::match_flag_type flags = regex_constants::match_default
-	) const
-	{
-		return base_type::search(begin, end, begin, m, flags | regex_constants::match_continuous | regex_constants::match_match_);
-	}
-
-	template <typename BidirectionalIterator>
-	bool match(
-		const BidirectionalIterator begin,
-		const BidirectionalIterator end,
-		const regex_constants::match_flag_type flags = regex_constants::match_default
-	) const
-	{
-		match_results<BidirectionalIterator> m;
-		return this->match(begin, end, m, flags);
-	}
-
-	template <typename Allocator>
-	bool match(
-		const charT *const str,
-		match_results<const charT *, Allocator> &m,
-		const regex_constants::match_flag_type flags = regex_constants::match_default
-	) const
-	{
-		return this->match(str, str + std::char_traits<charT>::length(str), m, flags);
-	}
-
-	bool match(
-		const charT *const str,
-		const regex_constants::match_flag_type flags = regex_constants::match_default
-	) const
-	{
-		return this->match(str, str + std::char_traits<charT>::length(str), flags);
-	}
-
-	template <typename ST, typename SA, typename MA>
-	bool match(
-		const std::basic_string<charT, ST, SA> &s,
-		match_results<typename std::basic_string<charT, ST, SA>::const_iterator, MA> &m,
-		const regex_constants::match_flag_type flags = regex_constants::match_default
-	) const
-	{
-		return this->match(s.begin(), s.end(), m, flags);
-	}
-
-	template <typename ST, typename SA>
-	bool match(
-		const std::basic_string<charT, ST, SA> &s,
-		const regex_constants::match_flag_type flags = regex_constants::match_default
-	) const
-	{
-		return this->match(s.begin(), s.end(), flags);
-	}
-
-	template <typename BidirectionalIterator, typename Allocator>
-	bool search(
-		const BidirectionalIterator begin,
-		const BidirectionalIterator end,
-		const BidirectionalIterator lookbehind_limit,
-		match_results<BidirectionalIterator, Allocator> &m,
-		const regex_constants::match_flag_type flags = regex_constants::match_default
-	) const
-	{
-		return base_type::search(begin, end, lookbehind_limit, m, flags);
-	}
-
-	template <typename BidirectionalIterator>
-	bool search(
-		const BidirectionalIterator begin,
-		const BidirectionalIterator end,
-		const BidirectionalIterator lookbehind_limit,
-		const regex_constants::match_flag_type flags = regex_constants::match_default
-	) const
-	{
-		match_results<BidirectionalIterator> m;
-		return base_type::search(begin, end, lookbehind_limit, m, flags);
-	}
-
-	template <typename BidirectionalIterator, typename Allocator>
-	bool search(
-		const BidirectionalIterator begin,
-		const BidirectionalIterator end,
-		match_results<BidirectionalIterator, Allocator> &m,
-		const regex_constants::match_flag_type flags = regex_constants::match_default
-	) const
-	{
-		return base_type::search(begin, end, begin, m, flags);
-	}
-
-	template <typename BidirectionalIterator>
-	bool search(
-		const BidirectionalIterator begin,
-		const BidirectionalIterator end,
-		const regex_constants::match_flag_type flags = regex_constants::match_default
-	) const
-	{
-		return this->search(begin, end, begin, flags);
-	}
-
-	template <typename Allocator>
-	bool search(
-		const charT *const str,
-		match_results<const charT *, Allocator> &m,
-		const regex_constants::match_flag_type flags = regex_constants::match_default
-	) const
-	{
-		return this->search(str, str + std::char_traits<charT>::length(str), m, flags);
-	}
-
-	bool search(
-		const charT *const str,
-		const regex_constants::match_flag_type flags = regex_constants::match_default
-	) const
-	{
-		return this->search(str, str + std::char_traits<charT>::length(str), flags);
-	}
-
-	template <typename ST, typename SA, typename MA>
-	bool search(
-		const std::basic_string<charT, ST, SA> &s,
-		match_results<typename std::basic_string<charT, ST, SA>::const_iterator, MA> &m,
-		const regex_constants::match_flag_type flags = regex_constants::match_default
-	) const
-	{
-		return this->search(s.begin(), s.end(), m, flags);
-	}
-
-	template <typename ST, typename SA>
-	bool search(
-		const std::basic_string<charT, ST, SA> &s,
-		const regex_constants::match_flag_type flags = regex_constants::match_default
-	) const
-	{
-		return this->search(s.begin(), s.end(), flags);
-	}
-
-	template <typename StringLike>
-	void replace(
-		StringLike &s,
-		const charT *const fmt_begin,
-		const charT *const fmt_end,
-		const bool global = false
-	) const
-	{
-		typedef typename StringLike::traits_type ST;
-		typedef typename StringLike::allocator_type SA;
-		re_detail::repoptions<charT> opts(fmt_begin, fmt_end, global);
-
-		this->do_replace(s, re_detail::call_mrformat<charT, ST, SA, const charT *>, reinterpret_cast<void *>(&opts));
-	}
-
-	template <typename StringLike>
-	void replace(
-		StringLike &s,
-		const charT *const fmt,
-		const bool global = false
-	) const
-	{
-		replace(s, fmt, fmt + std::char_traits<charT>::length(fmt), global);
-	}
-
-	template <typename StringLike, typename FST, typename FSA>
-	void replace(
-		StringLike &s,
-		const std::basic_string<charT, FST, FSA> &fmt,
-		const bool global = false
-	) const
-	{
-		replace(s, fmt.data(), fmt.data() + fmt.size(), global);
-	}
-
-	template <typename StringLike, typename RandomAccessIterator, typename MA>
-	void replace(
-		StringLike &s,
-		bool (*repfunc)(std::basic_string<charT, typename StringLike::traits_type, typename StringLike::allocator_type> &, const match_results<RandomAccessIterator, MA> &, void *),
-		void *ptr = NULL
-	) const
-	{
-		this->do_replace(s, repfunc, ptr);
-	}
-
-	//  re.replace<my_match_type>(...):
-	//  Overload for match_results<BidiIter, CustomAllocator> (my_match_type)
-	//  to be used internally and passed to a callback function instead of default
-	//  match_results<BidiIter, std::allocator<sub_match<BidiIter> >.
-//	template <typename S, typename MR>
-	template <typename MatchResults, typename StringLike>
-	void replace(
-		StringLike &s,
-//		bool (*repfunc)(std::basic_string<charT, typename S::traits_type, typename S::allocator_type> &, const match_results<typename MR::value_type::iterator, typename MR::allocator_type> &, void *),
-		bool (*repfunc)(std::basic_string<charT, typename StringLike::traits_type, typename StringLike::allocator_type> &, const MatchResults &, void *),
-		void *ptr = NULL
-	) const
-	{
-		this->do_replace(s, repfunc, ptr);
-	}
-
-	template <typename container, typename ST, typename SA>
-	void split(
-		container &c,
-		const std::basic_string<charT, ST, SA> &s,
-		const std::size_t limit = static_cast<std::size_t>(-1)
-	) const
-	{
-		typedef typename container::value_type::iterator BidiIter;
-		typedef match_results<BidiIter> match_type;	//  match_type::value_type == container::value_type.
-		this->template do_split<match_type>(c, re_detail::pos0_<charT>(s, BidiIter()), re_detail::pos1_<charT>(s, BidiIter()), limit);
-	}
-
-	template <typename container, typename BidirectionalIterator>
-	void split(
-		container &c,
-		const BidirectionalIterator begin,	//  The same as or convertible to container::value_type::iterator.
-		const BidirectionalIterator end,
-		const std::size_t limit = static_cast<std::size_t>(-1)
-	) const
-	{
-		typedef typename container::value_type::iterator const_iterator;
-		typedef match_results<const_iterator> match_type;
-
-		this->template do_split<match_type>(c, static_cast<const_iterator>(begin), static_cast<const_iterator>(end), limit);
-		//  container::value_type::iterator should be const_iterator,
-		//  whereas BidirectionalIterator can be iterator.
-	}
-
-	template <typename container>
-	void split(
-		container &c,
-		const charT *const str,
-		const std::size_t limit = static_cast<std::size_t>(-1)
-	) const
-	{
-		typedef match_results<const charT *> match_type;
-		this->template do_split<match_type>(c, str, str + std::char_traits<charT>::length(str), limit);
-	}
-
-	//  re.split<my_match_type>(listcontainer, string):
-	//  Overload for match_results<BidiIter, CustomAllocator> (my_match_type)
-	//  to be used internally instead of default
-	//  match_results<BidiIter, std::allocator<sub_match<BidiIter> >.
-	//  In general, container::value_type == sub_match<BidiIter> == MatchResults::value_type.
-	template <typename MatchResults, typename container, typename ST, typename SA>
-	void split(
-		container &c,
-		const std::basic_string<charT, ST, SA> &s,
-		const std::size_t limit = static_cast<std::size_t>(-1)
-	) const
-	{
-		typedef typename container::value_type::iterator BidiIter;
-		this->template do_split<MatchResults>(c, re_detail::pos0_<charT>(s, BidiIter()), re_detail::pos1_<charT>(s, BidiIter()), limit);
-	}
-
-	template <typename MatchResults, typename container, typename BidirectionalIterator>
-	void split(
-		container &c,
-		const BidirectionalIterator begin,	//  The same as or convertible to MatchResults::value_type::iterator and container::value_type::iterator.
-		const BidirectionalIterator end,
-		const std::size_t limit = static_cast<std::size_t>(-1)
-	) const
-	{
-		typedef typename container::value_type::iterator const_iterator;
-
-		this->template do_split<MatchResults>(c, static_cast<const_iterator>(begin), static_cast<const_iterator>(end), limit);
-	}
-
-	template <typename MatchResults, typename container>
-	void split(
-		container &c,
-		const charT *const str,
-		const std::size_t limit = static_cast<std::size_t>(-1)
-	) const
-	{
-		this->template do_split<MatchResults>(c, str, str + std::char_traits<charT>::length(str), limit);
-	}
-
-private:
-
-	typedef re_detail::re_object<charT, traits> base_type;
-
-#endif	//  !defined(SRELL_NO_APIEXT)
 };
 template <class charT, class traits>
 	const regex_constants::syntax_option_type basic_regex<charT, traits>::icase;
@@ -11041,12 +10549,12 @@ typedef basic_regex<char, u8regex_traits<char> > u8cregex;
 	#endif
 #endif
 
-#if defined(SRELL_CPP11_CHAR1632_ENABLED)
+#if defined(__cpp_unicode_characters)
 	typedef basic_regex<char16_t> u16regex;
 	typedef basic_regex<char32_t> u32regex;
 #endif
 
-#if defined(SRELL_CPP20_CHAR8_ENABLED)
+#if defined(__cpp_char8_t)
 	typedef basic_regex<char8_t> u8regex;
 #else
 	typedef u8cregex u8regex;
@@ -11247,21 +10755,21 @@ typedef regex_iterator<std::string::const_iterator, typename std::iterator_trait
 	#endif
 #endif
 
-#if defined(SRELL_CPP11_CHAR1632_ENABLED)
+#if defined(__cpp_unicode_characters)
 	typedef regex_iterator<const char16_t *> u16cregex_iterator;
 	typedef regex_iterator<const char32_t *> u32cregex_iterator;
 	typedef regex_iterator<std::u16string::const_iterator> u16sregex_iterator;
 	typedef regex_iterator<std::u32string::const_iterator> u32sregex_iterator;
 #endif
 
-#if defined(SRELL_CPP20_CHAR8_ENABLED)
+#if defined(__cpp_char8_t)
 	typedef regex_iterator<const char8_t *> u8cregex_iterator;
 #else
 	typedef u8ccregex_iterator u8cregex_iterator;
 #endif
-#if defined(SRELL_CPP20_CHAR8_ENABLED) && SRELL_CPP20_CHAR8_ENABLED >= 2
+#if defined(__cpp_char8_t) && defined(__cpp_lib_char8_t)
 	typedef regex_iterator<std::u8string::const_iterator> u8sregex_iterator;
-#else	//  !defined(SRELL_CPP20_CHAR8_ENABLED) || SRELL_CPP20_CHAR8_ENABLED < 2
+#else
 	typedef u8csregex_iterator u8sregex_iterator;
 #endif
 
@@ -11297,8 +10805,8 @@ public:
 		const std::basic_string<char_type, ST, SA> &s,
 		const regex_type &re,
 		const regex_constants::match_flag_type m = regex_constants::match_default)
-		: begin_(re_detail::pos0_<char_type>(s, BidirectionalIterator()))
-		, end_(re_detail::pos1_<char_type>(s, BidirectionalIterator()))
+		: begin_(pos0_(s, BidirectionalIterator()))
+		, end_(pos1_(s, BidirectionalIterator()))
 		, pregex_(&re)
 	{
 		rewind(m);
@@ -11382,8 +10890,8 @@ public:
 		const regex_type &re,
 		const regex_constants::match_flag_type m = regex_constants::match_default)
 	{
-		begin_ = re_detail::pos0_<char_type>(s, BidirectionalIterator());
-		end_ = re_detail::pos1_<char_type>(s, BidirectionalIterator());
+		begin_ = pos0_(s, BidirectionalIterator());
+		end_ = pos1_(s, BidirectionalIterator());
 		pregex_ = &re;
 		rewind(m);
 	}
@@ -11451,7 +10959,7 @@ public:
 
 		if (match_.size())
 		{
-			const BidirectionalIterator oldbegin = re_detail::pos0_<char_type>(entire_string, BidirectionalIterator());
+			const BidirectionalIterator oldbegin = pos0_(entire_string, BidirectionalIterator());
 			const typename string_type::size_type oldbeginoffset = begin_ - oldbegin;
 			const typename string_type::size_type oldendoffset = end_ - oldbegin;
 			const typename string_type::size_type pos = match_[0].first - oldbegin;
@@ -11460,7 +10968,7 @@ public:
 
 			entire_string.replace(pos, count, replacement);
 
-			const BidirectionalIterator newbegin = re_detail::pos0_<char_type>(entire_string, BidirectionalIterator());
+			const BidirectionalIterator newbegin = pos0_(entire_string, BidirectionalIterator());
 
 			begin_ = newbegin + oldbeginoffset;
 			end_ = newbegin + (oldendoffset + addition);	//  VC checks if an iterator exceeds end().
@@ -11593,6 +11101,28 @@ private:
 	typedef match_results<BidirectionalIterator> match_type;
 	typedef typename regex_type::traits_type::utf_traits utf_traits;
 
+	template <typename StringLike, typename iteratorTag>
+	iteratorTag pos0_(const StringLike &s, iteratorTag)
+	{
+		return s.begin();
+	}
+	template <typename StringLike>
+	const char_type *pos0_(const StringLike &s, const char_type *)
+	{
+		return s.data();
+	}
+
+	template <typename StringLike, typename iteratorTag>
+	iteratorTag pos1_(const StringLike &s, iteratorTag)
+	{
+		return s.end();
+	}
+	template <typename StringLike>
+	const char_type *pos1_(const StringLike &s, const char_type *)
+	{
+		return s.data() + s.size();
+	}
+
 	BidirectionalIterator begin_;
 	BidirectionalIterator end_;
 	const regex_type *pregex_;
@@ -11625,21 +11155,21 @@ typedef regex_iterator2<std::string::const_iterator, u8cregex> u8csregex_iterato
 	#endif
 #endif
 
-#if defined(SRELL_CPP11_CHAR1632_ENABLED)
+#if defined(__cpp_unicode_characters)
 	typedef regex_iterator2<const char16_t *> u16cregex_iterator2;
 	typedef regex_iterator2<const char32_t *> u32cregex_iterator2;
 	typedef regex_iterator2<std::u16string::const_iterator> u16sregex_iterator2;
 	typedef regex_iterator2<std::u32string::const_iterator> u32sregex_iterator2;
 #endif
 
-#if defined(SRELL_CPP20_CHAR8_ENABLED)
+#if defined(__cpp_char8_t)
 	typedef regex_iterator2<const char8_t *> u8cregex_iterator2;
 #else
 	typedef u8ccregex_iterator2 u8cregex_iterator2;
 #endif
-#if defined(SRELL_CPP20_CHAR8_ENABLED) && (SRELL_CPP20_CHAR8_ENABLED >= 2)
+#if defined(__cpp_char8_t) && defined(__cpp_lib_char8_t)
 	typedef regex_iterator2<std::u8string::const_iterator> u8sregex_iterator2;
-#else	//  !defined(SRELL_CPP20_CHAR8_ENABLED) || (SRELL_CPP20_CHAR8_ENABLED < 2)
+#else
 	typedef u8csregex_iterator2 u8sregex_iterator2;
 #endif
 
@@ -11938,94 +11468,6 @@ std::basic_string<charT> regex_replace(
 	return result;
 }
 
-#if !defined(SRELL_NO_APIEXT)
-
-template <typename BasicStringLike>
-struct str_clip
-{
-public:
-
-	typedef BasicStringLike string_type;
-	typedef typename string_type::traits_type traits_type;
-	typedef typename string_type::allocator_type allocator_type;
-	typedef typename string_type::size_type size_type;
-	typedef typename string_type::iterator iterator;
-	typedef typename string_type::const_iterator const_iterator;
-	typedef typename string_type::const_pointer const_pointer;
-
-	str_clip(const str_clip &s)
-		: ptr_(s.ptr_), offset_(s.offset_), roffset_(s.roffset_)
-	{
-	}
-
-	str_clip(string_type &s)
-		: ptr_(&s), offset_(0), roffset_(0)
-	{
-	}
-
-	str_clip(string_type &s, const size_type pos, const size_type count = string_type::npos)
-		: ptr_(&s), offset_(pos)
-	{
-		const size_type remainder = s.size() - pos;
-
-		roffset_ = count < remainder ? remainder - count : 0;
-	}
-
-	str_clip(string_type &s, const_iterator b, const_iterator e)
-		: ptr_(&s), offset_(b - s.begin()), roffset_(s.end() - e)
-	{
-	}
-
-	const str_clip &clip(const size_type pos, const size_type count = string_type::npos)
-	{
-		const size_type remainder = ptr_->size() - pos;
-
-		offset_ = pos;
-		roffset_ = count < remainder ? remainder - count : 0;
-		return *this;
-	}
-
-	const str_clip &clip(const_iterator b, const_iterator e)
-	{
-		offset_ = b - ptr_->begin();
-		roffset_ = ptr_->end() - e;
-		return *this;
-	}
-
-	const_pointer data() const
-	{
-		return ptr_->data() + offset_;
-	}
-
-	size_type size() const
-	{
-		return ptr_->size() - offset_ - roffset_;
-	}
-
-	iterator begin() const
-	{
-		return ptr_->begin() + offset_;
-	}
-
-	iterator end() const
-	{
-		return ptr_->end() - roffset_;
-	}
-
-	void replace(const size_type pos, const size_type count, const string_type &r) const
-	{
-		ptr_->replace(pos + offset_, count, r);
-	}
-
-private:
-
-	string_type *ptr_;
-	size_type offset_;
-	size_type roffset_;
-};
-
-#endif	//  !defined(SRELL_NO_APIEXT)
-
 //  ... "regex_algorithm.hpp"]
 //  ["regex_token_iterator.hpp" ...
 
@@ -12069,7 +11511,7 @@ public:
 		post_constructor_(a, b);
 	}
 
-#if defined(SRELL_CPP11_INITIALIZER_LIST_ENABLED)
+#if defined(__cpp_initializer_lists)
 	regex_token_iterator(
 		const BidirectionalIterator a,
 		const BidirectionalIterator b,
@@ -12243,21 +11685,21 @@ typedef regex_token_iterator<std::string::const_iterator, typename std::iterator
 	#endif
 #endif
 
-#if defined(SRELL_CPP11_CHAR1632_ENABLED)
+#if defined(__cpp_unicode_characters)
 	typedef regex_token_iterator<const char16_t *> u16cregex_token_iterator;
 	typedef regex_token_iterator<const char32_t *> u32cregex_token_iterator;
 	typedef regex_token_iterator<std::u16string::const_iterator> u16sregex_token_iterator;
 	typedef regex_token_iterator<std::u32string::const_iterator> u32sregex_token_iterator;
 #endif
 
-#if defined(SRELL_CPP20_CHAR8_ENABLED)
+#if defined(__cpp_char8_t)
 	typedef regex_token_iterator<const char8_t *> u8cregex_token_iterator;
 #else
 	typedef u8ccregex_token_iterator u8cregex_token_iterator;
 #endif
-#if defined(SRELL_CPP20_CHAR8_ENABLED) && SRELL_CPP20_CHAR8_ENABLED >= 2
+#if defined(__cpp_char8_t) && defined(__cpp_lib_char8_t)
 	typedef regex_token_iterator<std::u8string::const_iterator> u8sregex_token_iterator;
-#else	//  !defined(SRELL_CPP20_CHAR8_ENABLED) || SRELL_CPP20_CHAR8_ENABLED < 2
+#else
 	typedef u8csregex_token_iterator u8sregex_token_iterator;
 #endif
 

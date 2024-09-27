@@ -1,5 +1,5 @@
 //
-//  updataout.cpp: version 3.003 (2024/07/20).
+//  updataout.cpp: version 3.004 (2024/09/22).
 //
 //  This is a program that generates srell_updata3.h from:
 //    DerivedCoreProperties.txt
@@ -1432,20 +1432,28 @@ private:
 
 	void sort_rangeno_table(u32pair *const posinfo, ui_l32 offset, std::string &lookup_numbers, const namenumber_mapper &rangeno_map, const std::string &indent)
 	{
-		typedef std::vector<srell::ssub_match> names_type;
-		names_type names;
+		strings_type names;
 		name_mapper pvalues;
 		namenumber_mapper pcounts;
+		srell::sregex_iterator2 rei2;
 
 		for (namenumber_mapper::const_iterator it = rangeno_map.begin(); it != rangeno_map.end(); ++it)
 		{
 			names.clear();
-			re_colon_.split(names, it->first, 2);
+			rei2.assign(it->first, re_colon_);
+
+			for (rei2.split_begin();; rei2.split_next())
+			{
+				names.push_back(rei2.split_aptrange());
+
+				if (rei2.done() || names.size() > 2)
+					break;
+			}
 
 			if (names.size() == 2)
 			{
-				const std::string pname(names[0].str());
-				const std::string pvalue(names[1].str());
+				const std::string &pname = names[0];
+				const std::string &pvalue = names[1];
 #if !defined(NO_LITERAL_ESCAPING)
 				pvalues[pname] += indent + "{ \"" + escape_string(pvalue) + "\", " + unishared::to_string(it->second) + " },\n";
 #else

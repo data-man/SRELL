@@ -1,3 +1,12 @@
+20240922; version 4.057:
+  ・Version 4.054以降、\p{}/\P{}で無効なUnicode property名や値が指定され
+    てもエラーにならなかった問題を修正。
+  ・basic_regexからreplace(), split()を削除。
+  ・SRELL_CPP*マクロを廃止。
+  ・misc/conftest.cppを更新。4.052と同じマスク値バグの修正と、SRELL_CPP*
+    マクロ廃止に伴う変更。
+  ・unicode/updataout3.cppを更新。
+
 20240911; version 4.056:
   ・ucfdata2.h, updata3.hをUnicode 16.0.0対応に更新。
   ・その他細々とした変更など。

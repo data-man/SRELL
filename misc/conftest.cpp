@@ -1,6 +1,9 @@
 //
 //  Conformance test program for SRELL.
-//  Version 3.003 (2024/06/06)
+//  Version 3.004 (2024/09/22)
+//
+//  This needs to be compiled and run on a system that supports
+//  an ISO-646/US-ASCII compatible encoding.
 //
 
 #include <cstdio>
@@ -23,7 +26,7 @@ namespace std
 	typedef basic_string<char16_t> u16string;
 	typedef basic_string<char32_t> u32string;
 }
-#define SRELL_CPP11_CHAR1632_ENABLED
+#define __cpp_unicode_characters
 #pragma message("[Info] char16_t and char32_t prepared for the pre-C++11 compiler.")
 #endif
 
@@ -52,7 +55,8 @@ namespace std
 {
 	typedef basic_string<char8_t> u8string;
 }
-#define SRELL_CPP20_CHAR8_ENABLED 2
+#define __cpp_char8_t
+#define __cpp_lib_char8_t
 #pragma message("[Info] char8_t prepared for the pre-C++20 compiler.")
 #endif
 
@@ -309,11 +313,11 @@ std::string utf16_to_utf8c(const std::basic_string<Char16> &u16)
 		const Char16 ucp = u16[index];
 
 		//  UTF-16 -> UTF-32.
-		if ((ucp & 0xdc00) == 0xd800)
+		if ((ucp & 0xfc00) == 0xd800)
 		{
 			const Char16 surtail = u16[++index];
 
-			if ((surtail & 0xdc00) == 0xdc00)
+			if ((surtail & 0xfc00) == 0xdc00)
 			{
 				const Char16 surlead = ((ucp & 0x3ff) + 0x40);
 				//  110110aa aabbbbcc  110111cc ddddeeee

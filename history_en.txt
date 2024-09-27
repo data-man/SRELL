@@ -1,3 +1,13 @@
+20240922; version 4.057:
+  * Fixed an issue that caused the pattern compiler not to return an
+    error even when an invalid Unicode property name or value is
+    specified in \p{}/\P{} since version 4.054.
+  * Removed replace() and split() from basic_regex.
+  * Removed SRELL_CPP* macros.
+  * Updated misc/conftest.cpp. The wrong mask value bug fix (same fix in
+    srell.hpp 4.052) and changes for the removal of SRELL_CPP* macros.
+  * Updated unicode/updataout3.cpp.
+
 20240911; version 4.056:
   * Updated ucfdata2.h and updata3.h to support Unicode 16.0.0.
   * Other minor modifications.
