@@ -1,3 +1,6 @@
+20241004; version 4.058:
+  ・Modifiers (?ims-ims:) を既定の機能に。
+
 20240922; version 4.057:
   ・Version 4.054以降、\p{}/\P{}で無効なUnicode property名や値が指定され
     てもエラーにならなかった問題を修正。

@@ -1,3 +1,6 @@
+20241004; version 4.058:
+  * Now modifiers (?ims-ims:) are enabled by default.
+
 20240922; version 4.057:
   * Fixed an issue that caused the pattern compiler not to return an
     error even when an invalid Unicode property name or value is

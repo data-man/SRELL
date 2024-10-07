@@ -1,4 +1,4 @@
-//  Generated on 2024/06/08.
+//  Generated on 2024/10/04.
 
 struct testdata
 {
@@ -858,8 +858,6 @@ testdata tests[] = {
 	0, 0,
 	STR0("")
 },
-
-#if defined(SRELL_ENABLE_MODIFIERS)
 {
 	0, "Modifiers 01: m-flag #1.\n",
 	"",
@@ -928,8 +926,6 @@ testdata tests[] = {
 	STR0("aa")
 	STR0("AA")
 },
-#endif	//  defined(SRELL_ENABLE_MODIFIERS)
-
 	//  Optimisations' side effect check.
 	//  gather_nextchars().
 {
@@ -1087,8 +1083,6 @@ testdata tests[] = {
 	0, 1,
 	STR0("SKIING")
 },
-
-#if defined(SRELL_ENABLE_MODIFIERS)
 	//  is_exclusive_sequence(), i-modifiers.
 {
 	0, "OSEC, ES-IMOD 01.\n",
@@ -1126,8 +1120,6 @@ testdata tests[] = {
 	STR0("aaaa")
 	STR0("a")
 },
-#endif	//  defined(SRELL_ENABLE_MODIFIERS)
-
 	//  Simplified counter mechanism.
 {
 	0, "OSEC, SC 01.\n",

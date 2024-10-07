@@ -1,6 +1,6 @@
 /*****************************************************************************
 **
-**  SRELL (std::regex-like library) version 4.057
+**  SRELL (std::regex-like library) version 4.058
 **
 **  Copyright (c) 2012-2024, Nozomu Katoo. All rights reserved.
 **
@@ -5258,7 +5258,7 @@ private:
 					{
 						switch (rbstate.char_num)
 						{
-#if defined(SRELL_ENABLE_MODIFIERS)
+#if !defined(SRELLDBG_NO_MODIFIERS)
 						case meta_char::mc_colon:	//  ':':
 							//  (?ims-ims:...)
 							if (modified != regex_constants::ECMAScript)
@@ -5344,7 +5344,7 @@ private:
 
 						rbstate.char_num = *curpos;
 					}
-#if defined(SRELL_ENABLE_MODIFIERS)
+#if !defined(SRELLDBG_NO_MODIFIERS)
 					COLON_FOUND:;
 					cvars.soflags = localflags;
 #endif
