@@ -1,5 +1,5 @@
 //
-//  updataout.cpp: version 3.004 (2024/09/22).
+//  updataout.cpp: version 3.005 (2024/10/31).
 //
 //  This is a program that generates srell_updata3.h from:
 //    DerivedCoreProperties.txt
@@ -1473,7 +1473,7 @@ private:
 	ui_l32 set_pvalue_and_count(std::string &lookup_numbers, u32pair &posinfo, const std::string category, const ui_l32 offset, namenumber_mapper &pcounts, name_mapper &pvalues, const std::string &indent)
 	{
 		lookup_numbers.append(indent + "//  " + category + ": " + unishared::to_string(pcounts[category]) + "\n" + pvalues[category]);
-		posinfo.set(offset, pcounts[category]);
+		posinfo.set(offset + 1, pcounts[category]);
 		return posinfo.second;
 	}
 

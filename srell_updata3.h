@@ -1393,10 +1393,10 @@ template <typename T1, typename T2, typename T3>
 const T2 unicode_property_data<T1, T2, T3>::positiontable[] =
 {
 	{ 0, 0 },	//  #0 unknown
-	{ 86, 105 },	//  #1 binary
-	{ 6, 80 },	//  #2 General_Category:gc
-	{ 191, 336 },	//  #3 Script:sc
-	{ 527, 336 },	//  #4 Script_Extensions:scx
+	{ 87, 105 },	//  #1 binary
+	{ 7, 80 },	//  #2 General_Category:gc
+	{ 192, 336 },	//  #3 Script:sc
+	{ 528, 336 },	//  #4 Script_Extensions:scx
 	{ 0, 758 },	//  #5 gc=Other:C
 	{ 0, 2 },	//  #6 gc=Control:Cc:cntrl
 	{ 2, 21 },	//  #7 gc=Format:Cf

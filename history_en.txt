@@ -1,3 +1,20 @@
+20241101; version 4.060:
+  * Fixed several offset values that had been off by 1 in
+    srell_updata3.h. Because of this problem, the pattern compiler had
+    failed to look up a Unicode property value being last in code point
+    order (e.g., \p{sc=Zzzz}, \p{space}). (Probably introduced by the
+    format change of data tables in 4.030. Thanks to Eugene Levelev for
+    the bug report).
+  * Updated unicode/updataout3.cpp to output a data file in which the
+    problem above is fixed.
+  * Cancelled the code change in 4.050 that had caused a problem which
+    had been fixed in 4.059, in favour of code simplification.
+
+20241016; version 4.059:
+  * Fixed a problem that caused match_results::length(), position(), and
+    str() not to compile when an argument was omitted since version
+    4.050 (Thanks to Winfried Schenke for the bug report).
+
 20241004; version 4.058:
   * Now modifiers (?ims-ims:) are enabled by default.
 

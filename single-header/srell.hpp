@@ -1,6 +1,6 @@
 /*****************************************************************************
 **
-**  SRELL (std::regex-like library) version 4.058
+**  SRELL (std::regex-like library) version 4.060
 **
 **  Copyright (c) 2012-2024, Nozomu Katoo. All rights reserved.
 **
@@ -5652,10 +5652,10 @@ template <typename T1, typename T2, typename T3>
 const T2 unicode_property_data<T1, T2, T3>::positiontable[] =
 {
 	{ 0, 0 },	//  #0 unknown
-	{ 86, 105 },	//  #1 binary
-	{ 6, 80 },	//  #2 General_Category:gc
-	{ 191, 336 },	//  #3 Script:sc
-	{ 527, 336 },	//  #4 Script_Extensions:scx
+	{ 87, 105 },	//  #1 binary
+	{ 7, 80 },	//  #2 General_Category:gc
+	{ 192, 336 },	//  #3 Script:sc
+	{ 528, 336 },	//  #4 Script_Extensions:scx
 	{ 0, 758 },	//  #5 gc=Other:C
 	{ 0, 2 },	//  #6 gc=Control:Cc:cntrl
 	{ 2, 21 },	//  #7 gc=Format:Cf
@@ -20995,16 +20995,6 @@ typedef ssub_match u8cssub_match;
 //  ... "regex_sub_match.hpp"]
 //  ["regex_match_results.hpp" ...
 
-	namespace re_detail
-	{
-template <bool, typename T>
-struct enable_if {};
-template <typename T>
-struct enable_if<true, T> { typedef T type; };
-template <typename IntType, typename RetType>
-struct enable_if_integer : enable_if<std::numeric_limits<IntType>::is_integer, RetType> {};
-	}
-
 //  28.10, class template match_results:
 template <class BidirectionalIterator, class Allocator = std::allocator<sub_match<BidirectionalIterator> > >
 class match_results
@@ -21113,37 +21103,49 @@ public:
 
 	//  28.10.4, element access:
 	//  [7.10.3] element access
-//	difference_type length(const size_type sub = 0) const
-	template <typename IntType>
-	typename re_detail::enable_if_integer<IntType, difference_type>::type length(const IntType sub = 0) const
+	difference_type length(const size_type sub = 0) const
 	{
 		return (*this)[sub].length();
 	}
 
-//	difference_type position(const size_type sub = 0) const
-	template <typename IntType>
-	typename re_detail::enable_if_integer<IntType, difference_type>::type position(const IntType sub = 0) const
+	difference_type position(const size_type sub = 0) const
 	{
-		const_reference ref = (*this)[sub];
-
-		return std::distance(base_, ref.first);
+		return std::distance(base_, (*this)[sub].first);
 	}
 
-//	string_type str(const size_type sub = 0) const
-	template <typename IntType>
-	typename re_detail::enable_if_integer<IntType, string_type>::type str(const IntType sub = 0) const
+	string_type str(const size_type sub = 0) const
 	{
 		return string_type((*this)[sub]);
 	}
 
-//	const_reference operator[](const size_type n) const
-	template <typename IntType>
-	typename re_detail::enable_if_integer<IntType, const_reference>::type operator[](const IntType n) const
+	const_reference operator[](const size_type n) const
 	{
-		return static_cast<size_type>(n) < sub_matches_.size() ? sub_matches_[n] : unmatched_;
+		return n < sub_matches_.size() ? sub_matches_[n] : unmatched_;
 	}
 
 #if !defined(SRELL_NO_NAMEDCAPTURE)
+
+	//  Overload resolution helpers for values of signed types.
+	template <typename IntegerType>
+	difference_type length(const IntegerType sval) const
+	{
+		return length(static_cast<size_type>(sval));
+	}
+	template <typename IntegerType>
+	difference_type position(const IntegerType sval) const
+	{
+		return position(static_cast<size_type>(sval));
+	}
+	template <typename IntegerType>
+	string_type str(const IntegerType sval) const
+	{
+		return str(static_cast<size_type>(sval));
+	}
+	template <typename IntegerType>
+	const_reference operator[](const IntegerType sval) const
+	{
+		return operator[](static_cast<size_type>(sval));
+	}
 
 	difference_type length(const string_type &sub) const
 	{
