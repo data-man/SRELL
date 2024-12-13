@@ -1,10 +1,21 @@
+20241208; version 4.063:
+  * Adjusted the pattern compiler to consider surrogate pairs when
+    generating SIMD data for UTF-16.
+
+20241208; version 4.062:
+  * Simplified debugging macro checks.
+  * Minor improvements and cleanup.
+
+20241204; version 4.061:
+  * Introduced a simple SIMD acceleration (x86/x64 only).
+
 20241101; version 4.060:
-  * Fixed several offset values that had been off by 1 in
-    srell_updata3.h. Because of this problem, the pattern compiler had
-    failed to look up a Unicode property value being last in code point
-    order (e.g., \p{sc=Zzzz}, \p{space}). (Probably introduced by the
-    format change of data tables in 4.030. Thanks to Eugene Levelev for
-    the bug report).
+  * Corrected several offset values that had been off by 1 in
+    srell_updata3.h since the format change of data tables in 4.030.
+    Because of this problem, the pattern compiler had failed to look up
+    a Unicode property value being last in code point order, e.g.,
+    \p{sc=Zzzz}, \p{space}. (Thanks to Eugene Levelev for the bug
+    report).
   * Updated unicode/updataout3.cpp to output a data file in which the
     problem above is fixed.
   * Cancelled the code change in 4.050 that had caused a problem which
